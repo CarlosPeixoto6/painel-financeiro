@@ -32,7 +32,7 @@
   .right{text-align:right;font-variant-numeric:tabular-nums;}
   .donut{width:190px;height:190px;border-radius:50%;flex-shrink:0;}
   .legend{list-style:none;margin:0;padding:0;flex:1;}
-  .legend li{display:flex;align-items:center;gap:9px;padding:6px 0;font-size:13px;border-bottom:1px solid var(--line);}
+  .legend li{font-size:13px;border-bottom:1px solid var(--line);}
   .legend li:last-child{border:none;}
   .dot{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
   .legend .name{flex:1;}
@@ -51,6 +51,16 @@
   .split>div{flex:1;}
   .progresslabel{display:flex;justify-content:space-between;font-size:12.5px;color:var(--sub);margin-bottom:6px;}
   .mini{font-size:11px;color:var(--mut);}
+  .legend details{width:100%;}
+  .legend summary{display:flex;align-items:center;gap:9px;cursor:pointer;list-style:none;padding:6px 0;}
+  .legend summary::-webkit-details-marker{display:none;}
+  .legend .chev{width:20px;height:20px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--acc);flex-shrink:0;transition:all .15s ease;}
+  .legend summary:hover .chev{border-color:var(--acc);}
+  .legend details[open] .chev{transform:rotate(90deg);background:var(--acc);color:var(--panel2);border-color:var(--acc);}
+  .legend details[open] summary{padding-bottom:2px;}
+  .subitems{list-style:none;margin:2px 0 10px;padding:0 0 0 19px;border-left:1px solid var(--line);}
+  .subitems li{display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0 5px 10px;color:var(--sub);border-bottom:none !important;}
+  .subitems li b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;}
   @media(max-width:760px){.g4{grid-template-columns:repeat(2,1fr);}.g3{grid-template-columns:1fr;}.g2{grid-template-columns:1fr;}.flexrow{flex-direction:column;}.donut{margin:0 auto;}}
 </style>
 </head>
