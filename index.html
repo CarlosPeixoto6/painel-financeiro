@@ -13,7 +13,7 @@
   body{margin:0;background:var(--bg);color:var(--ink);font-family:'Segoe UI',system-ui,-apple-system,Helvetica,Arial,sans-serif;padding:28px 18px 60px;}
   .wrap{max-width:1080px;margin:0 auto;}
   h1{font-size:22px;margin:0 0 2px;letter-spacing:.2px;}
-  .period{color:var(--sub);font-size:13px;margin-bottom:26px;}
+  .period{color:var(--sub);font-size:13px;margin-bottom:0;}
   h2{font-size:14px;text-transform:uppercase;letter-spacing:1.2px;color:var(--sub);margin:38px 0 12px;display:flex;align-items:center;gap:8px;}
   h2 .n{width:20px;height:20px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--acc);}
   .grid{display:grid;gap:12px;}
@@ -39,11 +39,12 @@
   .legend .amt{font-variant-numeric:tabular-nums;color:var(--sub);font-size:12.5px;}
   .legend .pct{font-weight:700;width:46px;text-align:right;}
   .bar-outer{background:var(--panel2);border-radius:8px;height:14px;overflow:hidden;border:1px solid var(--line);}
-  .bar-inner{height:100%;border-radius:8px;}
+  .bar-inner{height:100%;border-radius:8px;transition:width .25s ease;}
   .flexrow{display:flex;gap:22px;align-items:center;}
   .badge{display:inline-block;padding:4px 11px;border-radius:20px;font-size:12px;font-weight:700;}
   .badge.bad{background:rgba(239,100,97,.15);color:var(--bad);border:1px solid rgba(239,100,97,.35);}
   .badge.warn{background:rgba(240,185,77,.15);color:var(--warn);border:1px solid rgba(240,185,77,.35);}
+  .badge.good{background:rgba(62,207,142,.15);color:var(--good);border:1px solid rgba(62,207,142,.35);}
   .tech{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px;}
   .tech b{font-size:13px;} .tech p{margin:4px 0 0;font-size:12.5px;color:var(--sub);}
   .note{font-size:12px;color:var(--mut);margin-top:6px;}
@@ -61,212 +62,466 @@
   .subitems{list-style:none;margin:2px 0 10px;padding:0 0 0 19px;border-left:1px solid var(--line);}
   .subitems li{display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0 5px 10px;color:var(--sub);border-bottom:none !important;}
   .subitems li b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;}
+  .filterbar{display:flex;align-items:center;gap:10px;margin:14px 0 26px;flex-wrap:wrap;}
+  .filterbar label{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.6px;}
+  .filterbar select{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;cursor:pointer;}
+  .filterbar select:hover{border-color:var(--acc);}
+  .filterbar .scopepill{font-size:11.5px;color:var(--acc);background:rgba(90,169,230,.12);border:1px solid rgba(90,169,230,.35);border-radius:20px;padding:4px 12px;}
   @media(max-width:760px){.g4{grid-template-columns:repeat(2,1fr);}.g3{grid-template-columns:1fr;}.g2{grid-template-columns:1fr;}.flexrow{flex-direction:column;}.donut{margin:0 auto;}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Painel Financeiro</h1>
-  <div class="period">01/08/2025 → 21/07/2026 · Conta Abanca PT50…3302 + Revolut PT50…9562 (cruzadas)</div>
+  <div class="period">Conta Abanca PT50…3302 + Revolut PT50…9562 (cruzadas)</div>
 
-  <h2><span class="n">1</span>Visão geral (médias mensais)</h2>
-  <div class="grid g4">
-    <div class="card kpi"><div class="lbl">Entradas</div><div class="val pos">3 050 €</div><div class="sub">salário médio 2 900 € + outras 150 €</div></div>
-    <div class="card kpi"><div class="lbl">Saídas correntes</div><div class="val neg">2 279 €</div><div class="sub">fixas 1 186 € + variáveis 1 092 €</div></div>
-    <div class="card kpi"><div class="lbl">Fundo de emergência (Trade Republic)</div><div class="val" style="color:var(--acc)">400 €/mês</div><div class="sub">≈4 680 € acumulados, via J.P.Morgan AG</div></div>
-    <div class="card kpi"><div class="lbl">Saldo líquido real</div><div class="val warncol">≈ 0 €</div><div class="sub">saldo em conta bate no zero quase todos os meses</div></div>
+  <div class="filterbar">
+    <label for="monthFilter">Filtrar por mês</label>
+    <select id="monthFilter" onchange="render(this.value)"></select>
+    <span class="scopepill" id="scopePill"></span>
   </div>
+
+  <h2><span class="n">1</span><span id="h2-1">Visão geral</span></h2>
+  <div class="grid g4" id="sec1"></div>
 
   <h2><span class="n">2</span>Para onde vai cada euro</h2>
   <div class="card">
     <div class="flexrow">
-      <div class="donut" style="background:conic-gradient(
-        #ef6461 0% 32.4%,
-        #f0b94d 32.4% 56.2%,
-        #c78ff0 56.2% 70.5%,
-        #5aa9e6 70.5% 75.8%,
-        #ef6461 75.8% 93.2%,
-        #3ecf8e 93.2% 94.7%,
-        #8a97a3 94.7% 100%
-      );"></div>
-      <ul class="legend">
-        <li>
-          <details>
-            <summary><span class="dot" style="background:#ef6461"></span><span class="name">Dívidas &amp; crédito</span><span class="amt">706 €</span><span class="pct">32,4%</span><span class="chev">&#8250;</span></summary>
-            <ul class="subitems">
-              <li><span>Primus (crédito pessoal)</span><b>283 €</b></li>
-              <li><span>Transf. para o estrangeiro</span><b>192 €</b></li>
-              <li><span>Wizink (empréstimo)</span><b>153 €</b></li>
-              <li><span>Cartão crédito (revolving)</span><b>78 €</b></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><span class="dot" style="background:#f0b94d"></span><span class="name">Habitação</span><span class="amt">520 €</span><span class="pct">23,8%</span><span class="chev">&#8250;</span></summary>
-            <ul class="subitems">
-              <li><span>Crédito habitação (prestação)</span><b>418 €</b></li>
-              <li><span>Condomínio</span><b>102 €</b></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><span class="dot" style="background:#c78ff0"></span><span class="name">Compras &amp; lazer</span><span class="amt">312 €</span><span class="pct">14,3%</span><span class="chev">&#8250;</span></summary>
-            <ul class="subitems">
-              <li><span>Marketplaces (Amazon, eBay, Conforama...)</span><b>146 €</b></li>
-              <li><span>Tech (Fnac, Worten, PlayStation)</span><b>110 €</b></li>
-              <li><span>Roupa (Zara, Nike, About You...)</span><b>56 €</b></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><span class="dot" style="background:#5aa9e6"></span><span class="name">Transportes</span><span class="amt">116 €</span><span class="pct">5,3%</span><span class="chev">&#8250;</span></summary>
-            <ul class="subitems">
-              <li><span>Combustível (Repsol)</span><b>79 €</b></li>
-              <li><span>Portagens (Via Verde)</span><b>31 €</b></li>
-              <li><span>Transportes públicos</span><b>6 €</b></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><span class="dot" style="background:#ef6461"></span><span class="name">Impulsos</span><span class="amt">379 €</span><span class="pct">17,4%</span><span class="chev">&#8250;</span></summary>
-            <ul class="subitems">
-              <li><span>Levantamentos ATM</span><b>276 €</b></li>
-              <li><span>Apostas (22bet/Bet22)</span><b>53 €</b></li>
-              <li><span>Lotaria (Santa Casa)</span><b>50 €</b></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><span class="dot" style="background:#3ecf8e"></span><span class="name">Alimentação</span><span class="amt">33 €</span><span class="pct">1,5%</span><span class="chev">&#8250;</span></summary>
-            <ul class="subitems">
-              <li><span>Restaurantes &amp; cafés</span><b>27 €</b></li>
-              <li><span>Take-away</span><b>4 €</b></li>
-              <li><span>Supermercado direto</span><b>2 €</b></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><span class="dot" style="background:#8a97a3"></span><span class="name">Saúde, subscrições e seguros</span><span class="amt">115 €</span><span class="pct">5,3%</span><span class="chev">&#8250;</span></summary>
-            <ul class="subitems">
-              <li><span>Seguros (Tarifa Plana, Zurich, Mapfre)</span><b>83 €</b></li>
-              <li><span>Subscrições (Spotify, Apple, Vodafone...)</span><b>17 €</b></li>
-              <li><span>Farmácia &amp; saúde</span><b>14 €</b></li>
-              <li><span>Comissões bancárias</span><b>1 €</b></li>
-            </ul>
-          </details>
-        </li>
-      </ul>
+      <div class="donut" id="donut"></div>
+      <ul class="legend" id="legend"></ul>
     </div>
   </div>
 
   <h2><span class="n">3</span>Taxa de poupança</h2>
   <div class="card">
-    <div class="split">
-      <div>
-        <div class="progresslabel"><span>Teórica (rendimento − despesas)</span><span><b>25,3%</b></span></div>
-        <div class="bar-outer"><div class="bar-inner" style="width:25.3%;background:var(--acc)"></div></div>
-        <div class="mini">da qual fundo de emergência (Trade Republic) 13,1% · da qual não alocada 12,2%</div>
-      </div>
-      <div>
-        <div class="progresslabel"><span>Real (saldo que efetivamente sobra em conta)</span><span><b class="warncol">≈1%</b></span></div>
-        <div class="bar-outer"><div class="bar-inner" style="width:1%;background:var(--warn)"></div></div>
-        <div class="mini">a fatia "não alocada" está a evaporar em despesas não capturadas</div>
-      </div>
-      <div>
-        <div class="progresslabel"><span>Objetivo saudável</span><span><b class="pos">20%</b></span></div>
-        <div class="bar-outer"><div class="bar-inner" style="width:20%;background:var(--good)"></div></div>
-        <div class="mini">já é batido "no papel" — falta é reter, não gerar</div>
-      </div>
-    </div>
+    <div class="split" id="sec3"></div>
   </div>
 
   <h2><span class="n">4</span>Fugas de dinheiro</h2>
   <div class="card">
-    <table>
-      <tr><th>Origem</th><th class="right">Mensal</th><th class="right">Anual estimado</th><th>Ação</th></tr>
-      <tr><td>Serviço recorrente MBWay "1600-404 Lisboa"</td><td class="right">35,50 €</td><td class="right">426 €</td><td class="warncol">confirmar o que é</td></tr>
-      <tr><td>"royalxo" (LT) — cobrança nova desde jun/26</td><td class="right">≈10 €/semana</td><td class="right">520 €</td><td class="warncol">confirmar / cancelar</td></tr>
-      <tr><td>Spotify + Patreon + Apple</td><td class="right">12,44 €</td><td class="right">149 €</td><td>rever se todas usadas</td></tr>
-      <tr><td>Comissões manutenção conta (desde mai/26)</td><td class="right">3,12 €</td><td class="right">37 €</td><td class="neg">mudar p/ conta isenta</td></tr>
-      <tr><td><b>Total identificado</b></td><td></td><td class="right"><b>1 132 €/ano</b></td><td></td></tr>
-    </table>
+    <table id="sec4"></table>
   </div>
 
   <h2><span class="n">5</span>Quanto vale a tua hora</h2>
-  <div class="grid g4">
-    <div class="card kpi"><div class="lbl">Valor/hora líquido</div><div class="val" style="color:var(--acc)">16,75 €</div><div class="sub">2 900 € ÷ 173h (8h×5d)</div></div>
-    <div class="card kpi"><div class="lbl">#1 Levantamentos não rastreados</div><div class="val neg">3 360 €/ano</div><div class="sub">≈ 201h · 25 dias de trabalho</div></div>
-    <div class="card kpi"><div class="lbl">#2 Compras por impulso</div><div class="val neg">2 640 €/ano</div><div class="sub">≈ 158h · 20 dias de trabalho</div></div>
-    <div class="card kpi"><div class="lbl">#3 Apostas online (22bet/Bet22)</div><div class="val neg">900 €/ano</div><div class="sub">≈ 54h · 7 dias de trabalho</div></div>
-  </div>
+  <div class="grid g4" id="sec5"></div>
 
   <h2><span class="n">6</span>Reserva de emergência</h2>
-  <div class="card">
-    <div class="progresslabel"><span>≈4 680 € de 9 699 € (despesas fixas+essenciais × 6) — em Trade Republic</span><span><b>48%</b></span></div>
-    <div class="bar-outer"><div class="bar-inner" style="width:48.3%;background:var(--good)"></div></div>
-    <div class="split" style="margin-top:14px;">
-      <div class="card" style="background:var(--panel2)"><div class="lbl mini">Falta</div><div class="val" style="font-size:19px">5 019 €</div></div>
-      <div class="card" style="background:var(--panel2)"><div class="lbl mini">Ao ritmo atual (~400 €/mês p/ Trade Republic)</div><div class="val pos" style="font-size:19px">~12,5 meses</div></div>
-      <div class="card" style="background:var(--panel2)"><div class="lbl mini">Contas do dia a dia (Abanca/Revolut)</div><div class="val neg" style="font-size:19px">≈0 € líquidos</div></div>
-    </div>
-    <div class="note">Boa notícia: a reserva já vai a meio — só não estava visível porque não fica no Abanca/Revolut, fica na Trade Republic. Ponto de atenção: os depósitos são feitos em transferências manuais frequentes e irregulares, não uma ordem automática única.</div>
-  </div>
+  <div class="card" id="sec6"></div>
 
   <h2><span class="n">7</span>Paga-te primeiro</h2>
-  <div class="card">
-    <div class="flexrow">
-      <div class="kpi" style="flex:1"><div class="lbl">Transferir automaticamente no dia do salário</div><div class="val pos" style="font-size:32px">18%</div><div class="sub">≈ 549 €/mês do rendimento médio</div></div>
-      <div style="flex:1.4;font-size:13px;color:var(--sub);">Uma única ordem automática no dia do salário para a Trade Republic (fundo de emergência), substituindo as transferências manuais frequentes atuais. Ao atingir os 9 699 €, redirecionar esta mesma ordem para a Interactive Brokers (investimento).</div>
-    </div>
-  </div>
+  <div class="card" id="sec7"></div>
 
   <h2><span class="n">8</span>Otimizar</h2>
   <div class="card">
-    <table>
-      <tr><th>Conta</th><th class="right">Custo atual</th><th class="right">Poupança potencial/ano</th></tr>
-      <tr><td>Cartão de crédito Wizink (revolving, picos até 500 €)</td><td class="right">~150 €/mês</td><td class="right pos">~600 €</td></tr>
-      <tr><td>Serviço recorrente MBWay "1600-404 Lisboa"</td><td class="right">35,50 €/mês</td><td class="right pos">~426 €</td></tr>
-      <tr><td>Seguro (Tarifa Plana)</td><td class="right">~21 €/mês</td><td class="right pos">~40 €</td></tr>
-      <tr><td>Comissões de manutenção de conta</td><td class="right">3,12 €/mês</td><td class="right pos">~37 €</td></tr>
-      <tr><td><b>Total potencial</b></td><td></td><td class="right pos"><b>~1 103 €/ano</b></td></tr>
-    </table>
+    <table id="sec8"></table>
   </div>
 
   <h2><span class="n">9</span>Projeção + anti-impulsividade</h2>
-  <div class="grid g2">
-    <div class="card">
-      <div class="lbl mini">Projeção de saldo até 31/12/2026 (5,3 meses restantes)</div>
-      <div class="flexrow" style="margin-top:10px;">
-        <div class="kpi"><div class="val" style="font-size:20px">≈25 €</div><div class="sub">hoje</div></div>
-        <div style="color:var(--mut);font-size:20px;">→</div>
-        <div class="kpi"><div class="val pos" style="font-size:20px">+1 966 €</div><div class="sub">cenário mantendo o ritmo teórico</div></div>
-        <div style="color:var(--mut);font-size:20px;">vs</div>
-        <div class="kpi"><div class="val warncol" style="font-size:20px">≈0 €</div><div class="sub">cenário real observado (estagnado)</div></div>
-      </div>
-      <div class="note">Um imprevisto tipo o de 645 € (ago/25) esvazia a conta de imediato em qualquer dos cenários — não há almofada.</div>
-    </div>
-    <div class="card">
-      <div class="lbl mini">Classificação do impulso</div>
-      <div style="margin:10px 0;"><span class="badge bad">MODERADA A GRAVE</span></div>
-      <div class="note" style="font-size:12.5px;">Apostas de baixo valor mas muito frequentes há 12 meses seguidos (sem "ganhos" registados desde nov/25), crédito revolving a crescer, levantamentos constantes não rastreáveis. A reserva de emergência está a meio, mas isso não compensa o padrão de jogo em si.</div>
-    </div>
-  </div>
+  <div class="grid g2" id="sec9"></div>
 
-  <div class="card" style="margin-top:12px;">
-    <div class="lbl mini" style="margin-bottom:10px;">Técnicas mais indicadas ao teu caso</div>
-    <div class="tech"><b>Contas separadas</b><p>Moey/Abanca só para essenciais (renda, créditos, seguros) · Revolut trancado, sem cartão de topup fácil · Trade Republic só para o fundo de emergência, alimentado por uma ordem automática única · Interactive Brokers só para investir, depois de a reserva estar completa.</p></div>
-    <div class="tech"><b>Remover cartões guardados</b><p>Apagar o cartão gravado no 22bet/Bet22 e em apps de compras impulsivas — cada aposta de 10 € exige fricção extra, não um toque.</p></div>
-    <div class="tech"><b>Regra das 72 horas</b><p>Para compras online acima de 30 € (roupa, tech, marketplaces): esperar 3 dias antes de confirmar.</p></div>
-    <div class="tech"><b>Paga-te primeiro</b><p>Automatizar os 18% no dia do salário, para o dinheiro sair da equação antes de chegar ao Revolut.</p></div>
-    <div class="tech" style="border-color:rgba(239,100,97,.35)"><b class="neg">Apoio profissional</b><p>Dado o padrão persistente e recorrente das apostas ao longo de 12 meses, vale a pena considerares falar com um profissional especializado em comportamento de jogo — não é um sinal de fraqueza, é a ferramenta certa para este tipo de padrão.</p></div>
-  </div>
+  <div class="card" style="margin-top:12px;" id="sec9b"></div>
 
 </div>
+<script id="data-script" type="application/json">
+{"2025-08":{"income_salary":2835.97,"income_other":313.6,"trade_republic":500.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":82.65},"Saúde, subscrições e seguros":{"Seguros":29.56,"MBWay recorrente (por confirmar)":35.41,"Subscrições":11.44},"Dívidas & crédito":{"Wizink (empréstimo)":194.48,"Primus (crédito pessoal)":282.6,"Transf. para o estrangeiro":401.0},"Compras & lazer":{"Outros (não classificado)":162.4,"Outros lazer/compras":3.6,"Roupa":71.75,"Marketplaces":87.48},"Impulsos":{"Transferências MB Way (destino não identificado)":199.5,"Levantamentos ATM":290.0,"Apostas (22bet/Bet22)":160.0},"Transportes":{"Portagens (Via Verde)":32.15,"Combustível (Repsol)":172.65,"Despesas com o automóvel":645.43},"Alimentação":{"Restaurantes & cafés":21.5}},"extraordinary":[]},"2025-09":{"income_salary":5346.97,"income_other":74.48,"trade_republic":350.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":263.7},"Dívidas & crédito":{"Wizink (empréstimo)":168.0,"Primus (crédito pessoal)":282.6,"Transf. para o estrangeiro":700.5},"Impulsos":{"Levantamentos ATM":360.0,"Transferências MB Way (destino não identificado)":58.89,"Apostas (22bet/Bet22)":90.0},"Alimentação":{"Restaurantes & cafés":24.7,"Supermercado":6.45},"Saúde, subscrições e seguros":{"Seguros":29.54,"Subscrições":119.68,"MBWay recorrente (por confirmar)":35.41},"Transportes":{"Portagens (Via Verde)":11.45,"Combustível (Repsol)":55.08},"Compras & lazer":{"Roupa":76.4,"Outros lazer/compras":16.84,"Marketplaces":53.66}},"extraordinary":[{"desc":"Operações bancárias Reforco Ppr (nif:217712320)","amount":-2000.0,"date":"25/09/2025","src":"abanca"}]},"2025-10":{"income_salary":2475.19,"income_other":169.7,"trade_republic":600.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":82.65},"Impulsos":{"Transferências MB Way (destino não identificado)":392.9,"Levantamentos ATM":330.0,"Apostas (22bet/Bet22)":60.0},"Saúde, subscrições e seguros":{"Seguros":29.52,"Subscrições":46.2,"MBWay recorrente (por confirmar)":35.41,"Farmácia & saúde":25.0},"Alimentação":{"Restaurantes & cafés":65.85},"Transportes":{"Portagens (Via Verde)":59.55,"Combustível (Repsol)":68.65},"Dívidas & crédito":{"Primus (crédito pessoal)":282.6,"Cartão crédito (revolving)":124.07,"Transf. para o estrangeiro":50.5},"Compras & lazer":{"Roupa":52.9,"Outros lazer/compras":19.39}},"extraordinary":[]},"2025-11":{"income_salary":4649.94,"income_other":361.9,"trade_republic":200.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":82.65},"Impulsos":{"Levantamentos ATM":200.0,"Transferências MB Way (destino não identificado)":241.6,"Lotaria (Santa Casa)":18.5,"Apostas (22bet/Bet22)":70.0},"Compras & lazer":{"Roupa":66.98,"Outros lazer/compras":625.99,"Tech":283.0,"Marketplaces":91.2},"Saúde, subscrições e seguros":{"Seguros":29.5,"Farmácia & saúde":86.31,"MBWay recorrente (por confirmar)":35.41,"Subscrições":12.44},"Transportes":{"Combustível (Repsol)":28.86,"Portagens (Via Verde)":39.3,"Seguro automóvel (Mapfre)":636.32},"Dívidas & crédito":{"Primus (crédito pessoal)":282.6,"Cartão crédito (revolving)":59.47,"Dívida ao Estado (prestações IGCP)":334.27,"Transf. para o estrangeiro":200.5},"Alimentação":{"Restaurantes & cafés":11.05}},"extraordinary":[]},"2025-12":{"income_salary":1867.97,"income_other":822.74,"trade_republic":0.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":82.65},"Alimentação":{"Restaurantes & cafés":147.39},"Impulsos":{"Levantamentos ATM":350.0,"Transferências MB Way (destino não identificado)":305.37,"Lotaria (Santa Casa)":48.5,"Apostas (22bet/Bet22)":50.0},"Saúde, subscrições e seguros":{"Seguros":29.47,"MBWay recorrente (por confirmar)":35.41,"Subscrições":12.44},"Transportes":{"Combustível (Repsol)":181.44,"Portagens (Via Verde)":50.55,"Despesas com o automóvel":21.99},"Dívidas & crédito":{"Primus (crédito pessoal)":282.6,"Cartão crédito (revolving)":225.14,"Transf. para o estrangeiro":500.0},"Compras & lazer":{"Roupa":70.62,"Marketplaces":666.23,"Outros lazer/compras":59.69,"Tech":283.49}},"extraordinary":[]},"2026-01":{"income_salary":2348.6,"income_other":552.75,"trade_republic":0.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86},"Saúde, subscrições e seguros":{"Seguros":29.45,"Subscrições":61.74,"Farmácia & saúde":3.14,"MBWay recorrente (por confirmar)":35.41},"Dívidas & crédito":{"Wizink (empréstimo)":177.05,"Primus (crédito pessoal)":282.6},"Alimentação":{"Restaurantes & cafés":64.37},"Impulsos":{"Transferências MB Way (destino não identificado)":255.7,"Levantamentos ATM":150.0,"Lotaria (Santa Casa)":30.0,"Apostas (22bet/Bet22)":40.0},"Compras & lazer":{"Outros (não classificado)":3.15,"Tech":643.16,"Outros lazer/compras":33.44,"Marketplaces":202.53},"Transportes":{"Combustível (Repsol)":134.98,"Portagens (Via Verde)":39.15}},"extraordinary":[]},"2026-02":{"income_salary":2097.27,"income_other":138.14,"trade_republic":0.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Eletricidade (EDP)":183.4,"Condomínio":165.3},"Impulsos":{"Transferências MB Way (destino não identificado)":153.86,"Levantamentos ATM":170.0,"Lotaria (Santa Casa)":500.0,"Apostas (22bet/Bet22)":70.0},"Saúde, subscrições e seguros":{"Seguros":29.43,"Farmácia & saúde":27.19,"Subscrições":15.6},"Dívidas & crédito":{"Primus (crédito pessoal)":282.6,"Cartão crédito (revolving)":53.96},"Alimentação":{"Restaurantes & cafés":39.85},"Compras & lazer":{"Tech":17.75,"Outros (não classificado)":9.02,"Marketplaces":257.78},"Transportes":{"Portagens (Via Verde)":27.4,"Despesas com o automóvel":37.47}},"extraordinary":[]},"2026-03":{"income_salary":2210.22,"income_other":54.86,"trade_republic":0.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":82.65},"Impulsos":{"Levantamentos ATM":210.0,"Transferências MB Way (destino não identificado)":197.69,"Apostas (22bet/Bet22)":40.0},"Dívidas & crédito":{"Wizink (empréstimo)":400.0,"Primus (crédito pessoal)":282.6,"Cartão crédito (revolving)":133.96},"Transportes":{"Combustível (Repsol)":163.96,"Portagens (Via Verde)":23.0},"Saúde, subscrições e seguros":{"Seguros":30.47,"MBWay recorrente (por confirmar)":36.23,"Subscrições":12.44},"Alimentação":{"Restaurantes & cafés":99.65,"Supermercado":5.2},"Compras & lazer":{"Tech":12.85,"Roupa":50.1,"Outros lazer/compras":65.0,"Marketplaces":330.23}},"extraordinary":[]},"2026-04":{"income_salary":3651.06,"income_other":27.41,"trade_republic":0.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":160.82},"Dívidas & crédito":{"Wizink (empréstimo)":500.0,"Primus (crédito pessoal)":282.6,"Transf. para o estrangeiro":500.0},"Impulsos":{"Levantamentos ATM":230.0,"Transferências MB Way (destino não identificado)":45.34,"Apostas (22bet/Bet22)":30.0},"Saúde, subscrições e seguros":{"Seguros":31.43,"Subscrições":13.22,"MBWay recorrente (por confirmar)":36.23},"Alimentação":{"Restaurantes & cafés":42.5,"Supermercado":7.59},"Compras & lazer":{"Outros lazer/compras":83.44,"Roupa":17.1,"Outros (não classificado)":10.0,"Tech":19.99,"Marketplaces":97.27},"Transportes":{"Portagens (Via Verde)":24.45}},"extraordinary":[]},"2026-05":{"income_salary":2210.22,"income_other":362.21,"trade_republic":0.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":82.65},"Impulsos":{"Levantamentos ATM":710.0,"Transferências MB Way (destino não identificado)":117.4,"Apostas (22bet/Bet22)":30.0},"Dívidas & crédito":{"Dívida ao Estado (prestações IGCP)":175.98,"Primus (crédito pessoal)":282.6,"Transf. para o estrangeiro":500.0,"Cartão crédito (revolving)":153.5},"Saúde, subscrições e seguros":{"Seguros":31.94,"Comissões bancárias":3.12,"Farmácia & saúde":12.5,"Educação/formação":221.0,"Subscrições":12.44},"Transportes":{"Portagens (Via Verde)":25.99},"Alimentação":{"Restaurantes & cafés":32.05},"Compras & lazer":{"Marketplaces":193.09,"Outros (não classificado)":9.21,"Tech":17.5}},"extraordinary":[]},"2026-06":{"income_salary":2210.22,"income_other":0.0,"trade_republic":0.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":69.9,"Eletricidade (EDP)":104.68},"Dívidas & crédito":{"Wizink (empréstimo)":50.0,"Primus (crédito pessoal)":282.6,"Cartão crédito (revolving)":141.63},"Impulsos":{"Levantamentos ATM":150.0,"Transferências MB Way (destino não identificado)":73.0},"Saúde, subscrições e seguros":{"Seguros":31.91,"Comissões bancárias":3.12,"Educação/formação":221.0,"Subscrições":12.44,"Cobrança recorrente royalxo (por confirmar)":20.0},"Alimentação":{"Restaurantes & cafés":36.1},"Transportes":{"Combustível (Repsol)":67.44,"Despesas com o automóvel":59.0,"Portagens (Via Verde)":11.89},"Compras & lazer":{"Tech":38.49,"Outros lazer/compras":16.37,"Roupa":110.96,"Marketplaces":65.17}},"extraordinary":[]},"2026-07":{"income_salary":0.0,"income_other":0.0,"trade_republic":0.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":69.9},"Dívidas & crédito":{"Wizink (empréstimo)":350.0,"Primus (crédito pessoal)":282.6,"Cartão crédito (revolving)":47.9},"Saúde, subscrições e seguros":{"Seguros":31.89,"Comissões bancárias":3.12,"Subscrições":12.44,"Cobrança recorrente royalxo (por confirmar)":20.0},"Impulsos":{"Levantamentos ATM":160.0,"Transferências MB Way (destino não identificado)":126.0},"Transportes":{"Portagens (Via Verde)":23.74,"Combustível (Repsol)":85.46},"Alimentação":{"Restaurantes & cafés":101.55}},"extraordinary":[]}}
+
+</script>
+<script>
+const MONTHLY = JSON.parse(document.getElementById('data-script').textContent);
+
+const MONTH_ORDER = ['2025-08','2025-09','2025-10','2025-11','2025-12','2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07'];
+const COMPLETE_MONTHS = MONTH_ORDER.filter(k => k !== '2026-07');
+const MONTH_LABELS = {
+  '2025-08':'Agosto 2025','2025-09':'Setembro 2025','2025-10':'Outubro 2025','2025-11':'Novembro 2025','2025-12':'Dezembro 2025',
+  '2026-01':'Janeiro 2026','2026-02':'Fevereiro 2026','2026-03':'Março 2026','2026-04':'Abril 2026','2026-05':'Maio 2026',
+  '2026-06':'Junho 2026','2026-07':'Julho 2026 (parcial, até dia 21)'
+};
+const PERIOD_LABEL = '01/08/2025 → 21/07/2026';
+const CURRENT_BALANCE_TODAY = 28.07; // Abanca 24,61€ (18/07/2026) + Revolut 3,46€ (14/07/2026), últimos saldos reais nos extratos
+const EMERGENCY_FUND_BALANCE = 4680; // saldo Trade Republic — conta fora destes extratos, valor reportado pelo utilizador
+
+const CATEGORY_COLORS = {
+  'Dívidas & crédito': '#ef6461',
+  'Habitação': '#f0b94d',
+  'Compras & lazer': '#c78ff0',
+  'Transportes': '#5aa9e6',
+  'Impulsos': '#e8895c',
+  'Alimentação': '#3ecf8e',
+  'Saúde, subscrições e seguros': '#8a97a3',
+};
+const CATEGORY_ORDER = ['Dívidas & crédito','Habitação','Compras & lazer','Impulsos','Transportes','Saúde, subscrições e seguros','Alimentação'];
+
+const SUBCAT_KIND = {
+  'Habitação': { '*': 'fixed' },
+  'Dívidas & crédito': { '*': 'fixed' },
+  'Transportes': {
+    'Seguro automóvel (Mapfre)': 'fixed',
+    'Combustível (Repsol)': 'essential',
+    'Despesas com o automóvel': 'essential',
+    'Portagens (Via Verde)': 'essential',
+  },
+  'Saúde, subscrições e seguros': {
+    'Seguros': 'fixed', 'Subscrições': 'fixed', 'Comissões bancárias': 'fixed',
+    'MBWay recorrente (por confirmar)': 'fixed', 'Cobrança recorrente royalxo (por confirmar)': 'fixed',
+    'Educação/formação': 'fixed', 'Farmácia & saúde': 'essential',
+  },
+  'Alimentação': { '*': 'essential' },
+  'Compras & lazer': { '*': 'discretionary' },
+  'Impulsos': { '*': 'discretionary' },
+};
+function kindOf(cat, sub) {
+  const rules = SUBCAT_KIND[cat] || {};
+  return rules[sub] || rules['*'] || 'discretionary';
+}
+
+function fmt(n) {
+  return (Math.round(n * 100) / 100).toLocaleString('pt-PT', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' €';
+}
+function fmt2(n) {
+  return (Math.round(n * 100) / 100).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+}
+function pct(n) { return (Math.round(n * 10) / 10).toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'; }
+
+function emptyAgg() { return { income_salary: 0, income_other: 0, trade_republic: 0, expenses: {}, extraordinary: [], monthsCount: 0 }; }
+function addMonth(agg, mk) {
+  const m = MONTHLY[mk];
+  if (!m) return;
+  agg.income_salary += m.income_salary;
+  agg.income_other += m.income_other;
+  agg.trade_republic += m.trade_republic;
+  agg.extraordinary = agg.extraordinary.concat(m.extraordinary);
+  for (const [cat, subs] of Object.entries(m.expenses)) {
+    agg.expenses[cat] = agg.expenses[cat] || {};
+    for (const [sub, amt] of Object.entries(subs)) agg.expenses[cat][sub] = (agg.expenses[cat][sub] || 0) + amt;
+  }
+  agg.monthsCount += 1;
+}
+function totalExpenses(agg) {
+  let t = 0;
+  for (const subs of Object.values(agg.expenses)) for (const v of Object.values(subs)) t += v;
+  return t;
+}
+function categoryTotals(agg) {
+  const out = {};
+  for (const [cat, subs] of Object.entries(agg.expenses)) out[cat] = Object.values(subs).reduce((a, b) => a + b, 0);
+  return out;
+}
+function fixedEssentialTotal(agg) {
+  let t = 0;
+  for (const [cat, subs] of Object.entries(agg.expenses)) for (const [sub, amt] of Object.entries(subs)) {
+    const k = kindOf(cat, sub);
+    if (k === 'fixed' || k === 'essential') t += amt;
+  }
+  return t;
+}
+function subcatValue(agg, cat, sub) { return (agg.expenses[cat] && agg.expenses[cat][sub]) || 0; }
+function discretionarySubcats(agg) {
+  const list = [];
+  for (const [cat, subs] of Object.entries(agg.expenses)) for (const [sub, amt] of Object.entries(subs)) {
+    if (kindOf(cat, sub) === 'discretionary') list.push({ cat, sub, amt });
+  }
+  list.sort((a, b) => b.amt - a.amt);
+  return list;
+}
+
+function computeView(filter) {
+  const isAll = filter === 'all';
+  const keys = isAll ? MONTH_ORDER : [filter];
+  const agg = emptyAgg();
+  keys.forEach(k => addMonth(agg, k));
+
+  const avgKeys = isAll ? COMPLETE_MONTHS : keys;
+  const avgAgg = emptyAgg();
+  avgKeys.forEach(k => addMonth(avgAgg, k));
+  const avgDivisor = avgKeys.length || 1;
+
+  const income = agg.income_salary + agg.income_other;
+  const expenses = totalExpenses(agg);
+  const saldo = income - expenses - agg.trade_republic;
+
+  const avgIncome = (avgAgg.income_salary + avgAgg.income_other) / avgDivisor;
+  const avgExpenses = totalExpenses(avgAgg) / avgDivisor;
+  const avgTR = avgAgg.trade_republic / avgDivisor;
+  const avgSaldo = avgIncome - avgExpenses - avgTR;
+  const avgSalary = avgAgg.income_salary / avgDivisor;
+  const avgOther = avgAgg.income_other / avgDivisor;
+
+  const catTotals = categoryTotals(agg);
+  const catPct = {};
+  for (const c of CATEGORY_ORDER) catPct[c] = expenses > 0 ? ((catTotals[c] || 0) / expenses * 100) : 0;
+
+  const fixedEssential = fixedEssentialTotal(agg);
+  const avgFixedEssential = fixedEssentialTotal(avgAgg) / avgDivisor;
+  const variable = expenses - fixedEssential;
+  const avgVariable = avgExpenses - avgFixedEssential;
+
+  const topDiscretionary = discretionarySubcats(agg).slice(0, 3);
+  const globalAvgSalary = (() => {
+    const g = emptyAgg();
+    COMPLETE_MONTHS.forEach(k => addMonth(g, k));
+    return g.income_salary / COMPLETE_MONTHS.length;
+  })();
+  const valorHoraBase = avgSalary > 0 ? avgSalary : globalAvgSalary;
+  const valorHora = valorHoraBase / 173;
+  const valorHoraIsFallback = avgSalary <= 0;
+
+  return {
+    isAll, keys, filter,
+    label: isAll ? `Todo o período (${PERIOD_LABEL})` : MONTH_LABELS[filter],
+    monthsCount: keys.length, avgDivisor,
+    income, expenses, saldo, trade_republic: agg.trade_republic,
+    avgIncome, avgExpenses, avgSaldo, avgTR, avgSalary, avgOther,
+    catTotals, catPct,
+    fixedEssential, avgFixedEssential, variable, avgVariable,
+    topDiscretionary, valorHora, valorHoraBase, valorHoraIsFallback,
+    extraordinary: agg.extraordinary,
+    expensesDetail: agg.expenses,
+    agg,
+  };
+}
+
+// ---------- Rendering ----------
+
+function el(html) { const d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstElementChild; }
+
+function renderFilterOptions() {
+  const sel = document.getElementById('monthFilter');
+  sel.innerHTML = '';
+  const optAll = document.createElement('option');
+  optAll.value = 'all'; optAll.textContent = 'Todos os meses (período completo)';
+  sel.appendChild(optAll);
+  MONTH_ORDER.forEach(k => {
+    const o = document.createElement('option');
+    o.value = k; o.textContent = MONTH_LABELS[k];
+    sel.appendChild(o);
+  });
+  sel.value = 'all';
+}
+
+function renderSection1(v) {
+  document.getElementById('h2-1').textContent = v.isAll ? 'Visão geral (médias mensais)' : 'Visão geral (mês selecionado)';
+  const entradas = v.isAll ? v.avgIncome : v.income;
+  const salPart = v.isAll ? v.avgSalary : (MONTHLY[v.filter] ? MONTHLY[v.filter].income_salary : 0);
+  const otherPart = v.isAll ? v.avgOther : (MONTHLY[v.filter] ? MONTHLY[v.filter].income_other : 0);
+  const saidas = v.isAll ? v.avgExpenses : v.expenses;
+  const fixedPart = v.isAll ? v.avgFixedEssential : v.fixedEssential;
+  const varPart = saidas - fixedPart;
+  const trRate = v.isAll ? v.avgTR : v.trade_republic;
+  const saldo = v.isAll ? v.avgSaldo : v.saldo;
+
+  document.getElementById('sec1').innerHTML = `
+    <div class="card kpi"><div class="lbl">Entradas</div><div class="val pos">${fmt(entradas)}</div><div class="sub">salário ${fmt(salPart)} + outras ${fmt(otherPart)}</div></div>
+    <div class="card kpi"><div class="lbl">Saídas correntes</div><div class="val neg">${fmt(saidas)}</div><div class="sub">fixas+essenciais ${fmt(fixedPart)} + variáveis ${fmt(varPart)}</div></div>
+    <div class="card kpi"><div class="lbl">Fundo de emergência (Trade Republic)</div><div class="val" style="color:var(--acc)">${fmt(trRate)}${v.isAll ? '/mês' : ''}</div><div class="sub">≈${fmt(EMERGENCY_FUND_BALANCE)} acumulados, via J.P.Morgan AG</div></div>
+    <div class="card kpi"><div class="lbl">Saldo líquido real</div><div class="val ${saldo >= 0 ? 'pos' : 'warncol'}">${saldo >= 0 ? '+' : ''}${fmt(saldo)}</div><div class="sub">${v.isAll ? 'saldo médio mensal real' : 'saldo real deste mês'}</div></div>
+  `;
+}
+
+function renderDonutAndLegend(v) {
+  const divisor = v.isAll ? v.avgDivisor : 1; // averages when scope spans multiple months, actuals for a single month
+  const displayTotals = {};
+  for (const c of CATEGORY_ORDER) displayTotals[c] = (v.catTotals[c] || 0) / divisor;
+
+  const cats = CATEGORY_ORDER.filter(c => (v.catTotals[c] || 0) > 0);
+  let acc = 0;
+  const stops = [];
+  cats.forEach(c => {
+    const start = acc;
+    acc += v.catPct[c];
+    stops.push(`${CATEGORY_COLORS[c]} ${start.toFixed(2)}% ${acc.toFixed(2)}%`);
+  });
+  document.getElementById('donut').style.background = stops.length ? `conic-gradient(${stops.join(',')})` : 'var(--panel2)';
+
+  const legend = document.getElementById('legend');
+  legend.innerHTML = '';
+  cats.slice().sort((a, b) => (v.catTotals[b] || 0) - (v.catTotals[a] || 0)).forEach(c => {
+    const subs = v.expensesDetail[c] || {};
+    const subItems = Object.entries(subs).sort((a, b) => b[1] - a[1])
+      .map(([sub, amt]) => `<li><span>${sub}</span><b>${fmt(amt / divisor)}</b></li>`).join('');
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <details>
+        <summary><span class="dot" style="background:${CATEGORY_COLORS[c]}"></span><span class="name">${c}</span><span class="amt">${fmt(displayTotals[c])}${v.isAll ? '/mês' : ''}</span><span class="pct">${pct(v.catPct[c])}</span><span class="chev">&#8250;</span></summary>
+        <ul class="subitems">${subItems}</ul>
+      </details>`;
+    legend.appendChild(li);
+  });
+}
+
+function renderSection3(v) {
+  const income = v.isAll ? v.avgIncome : v.income;
+  const expenses = v.isAll ? v.avgExpenses : v.expenses;
+  const saldo = v.isAll ? v.avgSaldo : v.saldo;
+  const teorica = income > 0 ? ((income - expenses) / income * 100) : 0;
+  const real = income > 0 ? (saldo / income * 100) : 0;
+  document.getElementById('sec3').innerHTML = `
+    <div>
+      <div class="progresslabel"><span>Teórica (rendimento − despesas)</span><span><b>${pct(teorica)}</b></span></div>
+      <div class="bar-outer"><div class="bar-inner" style="width:${Math.max(0, Math.min(100, teorica))}%;background:var(--acc)"></div></div>
+      <div class="mini">inclui a parte que vai para o Trade Republic e a parte não alocada</div>
+    </div>
+    <div>
+      <div class="progresslabel"><span>Real (saldo que efetivamente sobra)</span><span><b class="${real >= 15 ? 'pos' : 'warncol'}">${pct(real)}</b></span></div>
+      <div class="bar-outer"><div class="bar-inner" style="width:${Math.max(0, Math.min(100, real))}%;background:${real >= 15 ? 'var(--good)' : 'var(--warn)'}"></div></div>
+      <div class="mini">${real < 5 ? 'a fatia "não alocada" está a evaporar em despesas' : 'boa margem retida neste período'}</div>
+    </div>
+    <div>
+      <div class="progresslabel"><span>Objetivo saudável</span><span><b class="pos">20%</b></span></div>
+      <div class="bar-outer"><div class="bar-inner" style="width:20%;background:var(--good)"></div></div>
+      <div class="mini">referência geral de poupança</div>
+    </div>
+  `;
+}
+
+function renderSection4(v) {
+  const d = v.avgDivisor;
+  const isAllAvgBasis = v.isAll;
+  const mbway = isAllAvgBasis ? (subcatValue(v.agg, 'Saúde, subscrições e seguros', 'MBWay recorrente (por confirmar)') / d) : subcatValue(v.agg, 'Saúde, subscrições e seguros', 'MBWay recorrente (por confirmar)');
+  const royalxo = isAllAvgBasis ? (subcatValue(v.agg, 'Saúde, subscrições e seguros', 'Cobrança recorrente royalxo (por confirmar)') / d) : subcatValue(v.agg, 'Saúde, subscrições e seguros', 'Cobrança recorrente royalxo (por confirmar)');
+  const subs = isAllAvgBasis ? (subcatValue(v.agg, 'Saúde, subscrições e seguros', 'Subscrições') / d) : subcatValue(v.agg, 'Saúde, subscrições e seguros', 'Subscrições');
+  const comissoes = isAllAvgBasis ? (subcatValue(v.agg, 'Saúde, subscrições e seguros', 'Comissões bancárias') / d) : subcatValue(v.agg, 'Saúde, subscrições e seguros', 'Comissões bancárias');
+  const rows = [
+    ['Serviço recorrente MBWay "1600-404 Lisboa"', mbway, 'confirmar o que é'],
+    ['Cobrança "royalxo" (LT)', royalxo, 'confirmar / cancelar'],
+    ['Subscrições (Spotify, Patreon, Apple...)', subs, 'rever se todas usadas'],
+    ['Comissões manutenção de conta', comissoes, 'mudar p/ conta isenta'],
+  ];
+  const total = rows.reduce((a, r) => a + r[1], 0);
+  document.getElementById('sec4').innerHTML = `
+    <tr><th>Origem</th><th class="right">${v.isAll ? 'Mensal (média)' : 'Neste mês'}</th><th class="right">Anual estimado</th><th>Ação</th></tr>
+    ${rows.map(([name, val, action]) => `<tr><td>${name}</td><td class="right">${fmt2(val)}</td><td class="right">${fmt(val * 12)}</td><td class="${val > 30 ? 'warncol' : ''}">${action}</td></tr>`).join('')}
+    <tr><td><b>Total identificado</b></td><td></td><td class="right"><b>${fmt(total * 12)}/ano</b></td><td></td></tr>
+  `;
+}
+
+function renderSection5(v) {
+  const valorHora = v.valorHora;
+  const items = v.topDiscretionary;
+  const cards = [`
+    <div class="card kpi"><div class="lbl">Valor/hora líquido</div><div class="val" style="color:var(--acc)">${fmt2(valorHora)}</div><div class="sub">${fmt(v.valorHoraBase)} ÷ 173h${v.valorHoraIsFallback ? ' (média do período, sem salário este mês)' : ' (8h×5d)'}</div></div>
+  `];
+  items.forEach((it, i) => {
+    const hours = valorHora > 0 ? it.amt / valorHora : 0;
+    const days = hours / 8;
+    cards.push(`
+      <div class="card kpi"><div class="lbl">#${i + 1} ${it.sub}</div><div class="val neg">${fmt(it.amt)}</div><div class="sub">≈ ${Math.round(hours)}h · ${days.toFixed(1)} dias de trabalho${v.isAll ? '' : ' (neste mês)'}</div></div>
+    `);
+  });
+  while (cards.length < 4) cards.push(`<div class="card kpi"></div>`);
+  document.getElementById('sec5').innerHTML = cards.join('');
+}
+
+function renderSection6(v) {
+  const monthlyBase = v.isAll ? v.avgFixedEssential : v.fixedEssential;
+  const goal = monthlyBase * 6;
+  const balance = EMERGENCY_FUND_BALANCE;
+  const progressPct = goal > 0 ? Math.min(100, balance / goal * 100) : 0;
+  const falta = Math.max(0, goal - balance);
+  const trRate = v.isAll ? v.avgTR : v.trade_republic;
+  const monthsToGoal = trRate > 0 ? (falta / trRate) : null;
+
+  document.getElementById('sec6').innerHTML = `
+    <div class="progresslabel"><span>${fmt(balance)} de ${fmt(goal)} (despesas fixas+essenciais × 6) — em Trade Republic</span><span><b>${pct(progressPct)}</b></span></div>
+    <div class="bar-outer"><div class="bar-inner" style="width:${progressPct}%;background:var(--good)"></div></div>
+    <div class="split" style="margin-top:14px;">
+      <div class="card" style="background:var(--panel2)"><div class="lbl mini">Falta</div><div class="val" style="font-size:19px">${fmt(falta)}</div></div>
+      <div class="card" style="background:var(--panel2)"><div class="lbl mini">Ao ritmo de contribuição ${v.isAll ? 'médio' : 'deste mês'} (${fmt2(trRate)}/mês)</div><div class="val ${monthsToGoal ? 'pos' : 'warncol'}" style="font-size:19px">${monthsToGoal ? '~' + monthsToGoal.toFixed(1) + ' meses' : 'sem contribuição'}</div></div>
+      <div class="card" style="background:var(--panel2)"><div class="lbl mini">Saldo hoje nas contas do dia a dia</div><div class="val neg" style="font-size:19px">${fmt2(CURRENT_BALANCE_TODAY)}</div></div>
+    </div>
+    <div class="note">Saldo do Trade Republic reportado pelo utilizador (conta fora destes extratos). Contribuições identificadas nestes extratos: ago–nov/25 regulares, ${v.isAll ? 'praticamente paradas desde dez/25' : (trRate > 0 ? 'ativa neste mês' : 'sem transferência registada neste mês')}.</div>
+  `;
+}
+
+function renderSection7(v) {
+  const income = v.isAll ? v.avgIncome : v.income;
+  const suggested = v.isAll ? (v.avgTR + Math.max(0, v.avgSaldo)) : (v.trade_republic + Math.max(0, v.saldo));
+  const suggestedPct = income > 0 ? (suggested / income * 100) : 0;
+  document.getElementById('sec7').innerHTML = `
+    <div class="flexrow">
+      <div class="kpi" style="flex:1"><div class="lbl">Transferir automaticamente no dia do salário</div><div class="val pos" style="font-size:32px">${pct(suggestedPct)}</div><div class="sub">≈ ${fmt(suggested)}${v.isAll ? '/mês' : ' neste mês'} do rendimento</div></div>
+      <div style="flex:1.4;font-size:13px;color:var(--sub);">Uma única ordem automática no dia do salário para a Trade Republic (fundo de emergência), substituindo as transferências manuais atuais. Ao atingir o objetivo dos 6 meses de despesas, redirecionar esta mesma ordem para investimento.</div>
+    </div>
+  `;
+}
+
+function renderSection8(v) {
+  const d = v.avgDivisor;
+  const basis = v.isAll ? (x => x / d) : (x => x);
+  const wizink = basis(subcatValue(v.agg, 'Dívidas & crédito', 'Wizink (empréstimo)'));
+  const cartaoRevolving = basis(subcatValue(v.agg, 'Dívidas & crédito', 'Cartão crédito (revolving)'));
+  const mbway = basis(subcatValue(v.agg, 'Saúde, subscrições e seguros', 'MBWay recorrente (por confirmar)'));
+  const seguros = basis(subcatValue(v.agg, 'Saúde, subscrições e seguros', 'Seguros'));
+  const comissoes = basis(subcatValue(v.agg, 'Saúde, subscrições e seguros', 'Comissões bancárias'));
+  const rows = [
+    ['Wizink + cartão crédito (revolving)', wizink + cartaoRevolving, (wizink + cartaoRevolving) * 12 * 0.4],
+    ['Serviço recorrente MBWay "1600-404 Lisboa"', mbway, mbway * 12],
+    ['Seguros diversos', seguros, seguros * 12 * 0.2],
+    ['Comissões de manutenção de conta', comissoes, comissoes * 12],
+  ].filter(r => r[1] > 0.01);
+  const totalPot = rows.reduce((a, r) => a + r[2], 0);
+  document.getElementById('sec8').innerHTML = `
+    <tr><th>Conta</th><th class="right">Custo ${v.isAll ? 'médio/mês' : 'neste mês'}</th><th class="right">Poupança potencial/ano</th></tr>
+    ${rows.map(([name, cost, pot]) => `<tr><td>${name}</td><td class="right">${fmt2(cost)}</td><td class="right pos">~${fmt(pot)}</td></tr>`).join('')}
+    <tr><td><b>Total potencial</b></td><td></td><td class="right pos"><b>~${fmt(totalPot)}</b></td></tr>
+  `;
+}
+
+function renderSection9(v) {
+  const today = new Date(2026, 6, 21);
+  const yearEnd = new Date(2026, 11, 31);
+  const monthsLeft = (yearEnd - today) / (1000 * 60 * 60 * 24 * 30.44);
+  const saldoRate = v.isAll ? v.avgSaldo : v.saldo;
+  const projectedTheoretical = CURRENT_BALANCE_TODAY + saldoRate * monthsLeft;
+  const impulsos = v.catTotals['Impulsos'] || 0;
+  const impulsosPct = v.expenses > 0 ? impulsos / v.expenses * 100 : 0;
+  let severity = 'LIGEIRA', badgeClass = 'good';
+  if (impulsosPct > 25 || (v.topDiscretionary[0] && v.topDiscretionary[0].sub.includes('Apostas'))) { severity = 'MODERADA A GRAVE'; badgeClass = 'bad'; }
+  else if (impulsosPct > 15) { severity = 'MODERADA'; badgeClass = 'warn'; }
+
+  document.getElementById('sec9').innerHTML = `
+    <div class="card">
+      <div class="lbl mini">Projeção de saldo até 31/12/2026 (~${monthsLeft.toFixed(1)} meses restantes)</div>
+      <div class="flexrow" style="margin-top:10px;">
+        <div class="kpi"><div class="val" style="font-size:20px">${fmt2(CURRENT_BALANCE_TODAY)}</div><div class="sub">hoje</div></div>
+        <div style="color:var(--mut);font-size:20px;">→</div>
+        <div class="kpi"><div class="val ${projectedTheoretical >= CURRENT_BALANCE_TODAY ? 'pos' : 'warncol'}" style="font-size:20px">${projectedTheoretical >= 0 ? '+' : ''}${fmt(projectedTheoretical)}</div><div class="sub">${v.isAll ? 'ao ritmo médio real observado' : 'se este mês se repetir até dezembro'}</div></div>
+      </div>
+      <div class="note">Baseado no saldo real das contas do dia a dia hoje (Abanca+Revolut) e no saldo médio mensal ${v.isAll ? 'do período' : 'deste mês'}. Um imprevisto tipo o de ago/25 esvazia a conta de imediato — não há almofada nas contas correntes.</div>
+    </div>
+    <div class="card">
+      <div class="lbl mini">Classificação do impulso ${v.isAll ? '' : '(mês selecionado)'}</div>
+      <div style="margin:10px 0;"><span class="badge ${badgeClass}">${severity}</span></div>
+      <div class="note" style="font-size:12.5px;">Impulsos representam ${pct(impulsosPct)} das despesas ${v.isAll ? 'do período' : 'deste mês'} (${fmt(impulsos)}), incluindo levantamentos ATM não rastreados e apostas.</div>
+    </div>
+  `;
+
+  document.getElementById('sec9b').innerHTML = `
+    <div class="lbl mini" style="margin-bottom:10px;">Técnicas mais indicadas ao teu caso</div>
+    <div class="tech"><b>Contas separadas</b><p>Abanca/Revolut só para essenciais (renda, créditos, seguros) · Trade Republic só para o fundo de emergência, alimentado por uma ordem automática única · Interactive Brokers só para investir, depois de a reserva estar completa.</p></div>
+    <div class="tech"><b>Remover cartões guardados</b><p>Apagar o cartão gravado no 22bet/Bet22 e em apps de compras impulsivas — cada aposta exige fricção extra, não um toque.</p></div>
+    <div class="tech"><b>Regra das 72 horas</b><p>Para compras online acima de 30 € (roupa, tech, marketplaces): esperar 3 dias antes de confirmar.</p></div>
+    <div class="tech"><b>Paga-te primeiro</b><p>Automatizar a transferência da secção 7 no dia do salário, para o dinheiro sair da equação antes de chegar ao Revolut.</p></div>
+    <div class="tech" style="border-color:rgba(239,100,97,.35)"><b class="neg">Apoio profissional</b><p>Dado o padrão persistente e recorrente das apostas ao longo do período, vale a pena considerares falar com um profissional especializado em comportamento de jogo — não é um sinal de fraqueza, é a ferramenta certa para este tipo de padrão.</p></div>
+  `;
+}
+
+function render(filter) {
+  const v = computeView(filter);
+  document.getElementById('scopePill').textContent = v.label;
+  renderSection1(v);
+  renderDonutAndLegend(v);
+  renderSection3(v);
+  renderSection4(v);
+  renderSection5(v);
+  renderSection6(v);
+  renderSection7(v);
+  renderSection8(v);
+  renderSection9(v);
+}
+
+renderFilterOptions();
+render('all');
+
+</script>
 </body>
 </html>
