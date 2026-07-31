@@ -67,77 +67,95 @@
   .filterbar select{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;cursor:pointer;}
   .filterbar select:hover{border-color:var(--acc);}
   .filterbar .scopepill{font-size:11.5px;color:var(--acc);background:rgba(90,169,230,.12);border:1px solid rgba(90,169,230,.35);border-radius:20px;padding:4px 12px;}
+  .loadstate{padding:80px 0;text-align:center;color:var(--sub);font-size:14px;}
+  .errstate{padding:40px 0;text-align:center;color:var(--bad);font-size:14px;}
   @media(max-width:760px){.g4{grid-template-columns:repeat(2,1fr);}.g3{grid-template-columns:1fr;}.g2{grid-template-columns:1fr;}.flexrow{flex-direction:column;}.donut{margin:0 auto;}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Painel Financeiro</h1>
-  <div class="period">Conta Abanca PT50…3302 + Revolut PT50…9562 (cruzadas)</div>
+  <div class="period" id="periodLabel">A carregar…</div>
 
-  <div class="filterbar">
-    <label for="monthFilter">Filtrar por mês</label>
-    <select id="monthFilter" onchange="render(this.value)"></select>
-    <span class="scopepill" id="scopePill"></span>
-  </div>
+  <div id="loadState" class="loadstate">A carregar dados do Supabase…</div>
+  <div id="errState" class="errstate" style="display:none;"></div>
 
-  <h2><span class="n">1</span><span id="h2-1">Visão geral</span></h2>
-  <div class="grid g4" id="sec1"></div>
-
-  <h2><span class="n">2</span>Para onde vai cada euro</h2>
-  <div class="card">
-    <div class="flexrow">
-      <div class="donut" id="donut"></div>
-      <ul class="legend" id="legend"></ul>
+  <div id="dashboard" style="display:none;">
+    <div class="filterbar">
+      <label for="monthFilter">Filtrar por mês</label>
+      <select id="monthFilter" onchange="render(this.value)"></select>
+      <span class="scopepill" id="scopePill"></span>
     </div>
+
+    <h2><span class="n">1</span><span id="h2-1">Visão geral</span></h2>
+    <div class="grid g4" id="sec1"></div>
+
+    <h2><span class="n">2</span>Para onde vai cada euro</h2>
+    <div class="card">
+      <div class="flexrow">
+        <div class="donut" id="donut"></div>
+        <ul class="legend" id="legend"></ul>
+      </div>
+    </div>
+
+    <h2><span class="n">3</span>Taxa de poupança</h2>
+    <div class="card">
+      <div class="split" id="sec3"></div>
+    </div>
+
+    <h2><span class="n">4</span>Fugas de dinheiro</h2>
+    <div class="card">
+      <table id="sec4"></table>
+    </div>
+
+    <h2><span class="n">5</span>Quanto vale a tua hora</h2>
+    <div class="grid g4" id="sec5"></div>
+
+    <h2><span class="n">6</span>Reserva de emergência</h2>
+    <div class="card" id="sec6"></div>
+
+    <h2><span class="n">7</span>Paga-te primeiro</h2>
+    <div class="card" id="sec7"></div>
+
+    <h2><span class="n">8</span>Otimizar</h2>
+    <div class="card">
+      <table id="sec8"></table>
+    </div>
+
+    <h2><span class="n">9</span>Projeção + anti-impulsividade</h2>
+    <div class="grid g2" id="sec9"></div>
+
+    <div class="card" style="margin-top:12px;" id="sec9b"></div>
   </div>
-
-  <h2><span class="n">3</span>Taxa de poupança</h2>
-  <div class="card">
-    <div class="split" id="sec3"></div>
-  </div>
-
-  <h2><span class="n">4</span>Fugas de dinheiro</h2>
-  <div class="card">
-    <table id="sec4"></table>
-  </div>
-
-  <h2><span class="n">5</span>Quanto vale a tua hora</h2>
-  <div class="grid g4" id="sec5"></div>
-
-  <h2><span class="n">6</span>Reserva de emergência</h2>
-  <div class="card" id="sec6"></div>
-
-  <h2><span class="n">7</span>Paga-te primeiro</h2>
-  <div class="card" id="sec7"></div>
-
-  <h2><span class="n">8</span>Otimizar</h2>
-  <div class="card">
-    <table id="sec8"></table>
-  </div>
-
-  <h2><span class="n">9</span>Projeção + anti-impulsividade</h2>
-  <div class="grid g2" id="sec9"></div>
-
-  <div class="card" style="margin-top:12px;" id="sec9b"></div>
-
 </div>
-<script id="data-script" type="application/json">
-{"2025-08":{"income_salary":2835.97,"income_other":313.6,"trade_republic":500.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":82.65},"Saúde, subscrições e seguros":{"Seguros":29.56,"MBWay recorrente (por confirmar)":35.41,"Subscrições":11.44},"Dívidas & crédito":{"Wizink (empréstimo)":194.48,"Primus (crédito pessoal)":282.6,"Transf. para o estrangeiro":401.0},"Compras & lazer":{"Outros (não classificado)":162.4,"Outros lazer/compras":3.6,"Roupa":71.75,"Marketplaces":87.48},"Impulsos":{"Transferências MB Way (destino não identificado)":199.5,"Levantamentos ATM":290.0,"Apostas (22bet/Bet22)":160.0},"Transportes":{"Portagens (Via Verde)":32.15,"Combustível (Repsol)":172.65,"Despesas com o automóvel":645.43},"Alimentação":{"Restaurantes & cafés":21.5}},"extraordinary":[]},"2025-09":{"income_salary":5346.97,"income_other":74.48,"trade_republic":350.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":263.7},"Dívidas & crédito":{"Wizink (empréstimo)":168.0,"Primus (crédito pessoal)":282.6,"Transf. para o estrangeiro":700.5},"Impulsos":{"Levantamentos ATM":360.0,"Transferências MB Way (destino não identificado)":58.89,"Apostas (22bet/Bet22)":90.0},"Alimentação":{"Restaurantes & cafés":24.7,"Supermercado":6.45},"Saúde, subscrições e seguros":{"Seguros":29.54,"Subscrições":119.68,"MBWay recorrente (por confirmar)":35.41},"Transportes":{"Portagens (Via Verde)":11.45,"Combustível (Repsol)":55.08},"Compras & lazer":{"Roupa":76.4,"Outros lazer/compras":16.84,"Marketplaces":53.66}},"extraordinary":[{"desc":"Operações bancárias Reforco Ppr (nif:217712320)","amount":-2000.0,"date":"25/09/2025","src":"abanca"}]},"2025-10":{"income_salary":2475.19,"income_other":169.7,"trade_republic":600.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":82.65},"Impulsos":{"Transferências MB Way (destino não identificado)":392.9,"Levantamentos ATM":330.0,"Apostas (22bet/Bet22)":60.0},"Saúde, subscrições e seguros":{"Seguros":29.52,"Subscrições":46.2,"MBWay recorrente (por confirmar)":35.41,"Farmácia & saúde":25.0},"Alimentação":{"Restaurantes & cafés":65.85},"Transportes":{"Portagens (Via Verde)":59.55,"Combustível (Repsol)":68.65},"Dívidas & crédito":{"Primus (crédito pessoal)":282.6,"Cartão crédito (revolving)":124.07,"Transf. para o estrangeiro":50.5},"Compras & lazer":{"Roupa":52.9,"Outros lazer/compras":19.39}},"extraordinary":[]},"2025-11":{"income_salary":4649.94,"income_other":361.9,"trade_republic":200.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":82.65},"Impulsos":{"Levantamentos ATM":200.0,"Transferências MB Way (destino não identificado)":241.6,"Lotaria (Santa Casa)":18.5,"Apostas (22bet/Bet22)":70.0},"Compras & lazer":{"Roupa":66.98,"Outros lazer/compras":625.99,"Tech":283.0,"Marketplaces":91.2},"Saúde, subscrições e seguros":{"Seguros":29.5,"Farmácia & saúde":86.31,"MBWay recorrente (por confirmar)":35.41,"Subscrições":12.44},"Transportes":{"Combustível (Repsol)":28.86,"Portagens (Via Verde)":39.3,"Seguro automóvel (Mapfre)":636.32},"Dívidas & crédito":{"Primus (crédito pessoal)":282.6,"Cartão crédito (revolving)":59.47,"Dívida ao Estado (prestações IGCP)":334.27,"Transf. para o estrangeiro":200.5},"Alimentação":{"Restaurantes & cafés":11.05}},"extraordinary":[]},"2025-12":{"income_salary":1867.97,"income_other":822.74,"trade_republic":0.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":82.65},"Alimentação":{"Restaurantes & cafés":147.39},"Impulsos":{"Levantamentos ATM":350.0,"Transferências MB Way (destino não identificado)":305.37,"Lotaria (Santa Casa)":48.5,"Apostas (22bet/Bet22)":50.0},"Saúde, subscrições e seguros":{"Seguros":29.47,"MBWay recorrente (por confirmar)":35.41,"Subscrições":12.44},"Transportes":{"Combustível (Repsol)":181.44,"Portagens (Via Verde)":50.55,"Despesas com o automóvel":21.99},"Dívidas & crédito":{"Primus (crédito pessoal)":282.6,"Cartão crédito (revolving)":225.14,"Transf. para o estrangeiro":500.0},"Compras & lazer":{"Roupa":70.62,"Marketplaces":666.23,"Outros lazer/compras":59.69,"Tech":283.49}},"extraordinary":[]},"2026-01":{"income_salary":2348.6,"income_other":552.75,"trade_republic":0.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86},"Saúde, subscrições e seguros":{"Seguros":29.45,"Subscrições":61.74,"Farmácia & saúde":3.14,"MBWay recorrente (por confirmar)":35.41},"Dívidas & crédito":{"Wizink (empréstimo)":177.05,"Primus (crédito pessoal)":282.6},"Alimentação":{"Restaurantes & cafés":64.37},"Impulsos":{"Transferências MB Way (destino não identificado)":255.7,"Levantamentos ATM":150.0,"Lotaria (Santa Casa)":30.0,"Apostas (22bet/Bet22)":40.0},"Compras & lazer":{"Outros (não classificado)":3.15,"Tech":643.16,"Outros lazer/compras":33.44,"Marketplaces":202.53},"Transportes":{"Combustível (Repsol)":134.98,"Portagens (Via Verde)":39.15}},"extraordinary":[]},"2026-02":{"income_salary":2097.27,"income_other":138.14,"trade_republic":0.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Eletricidade (EDP)":183.4,"Condomínio":165.3},"Impulsos":{"Transferências MB Way (destino não identificado)":153.86,"Levantamentos ATM":170.0,"Lotaria (Santa Casa)":500.0,"Apostas (22bet/Bet22)":70.0},"Saúde, subscrições e seguros":{"Seguros":29.43,"Farmácia & saúde":27.19,"Subscrições":15.6},"Dívidas & crédito":{"Primus (crédito pessoal)":282.6,"Cartão crédito (revolving)":53.96},"Alimentação":{"Restaurantes & cafés":39.85},"Compras & lazer":{"Tech":17.75,"Outros (não classificado)":9.02,"Marketplaces":257.78},"Transportes":{"Portagens (Via Verde)":27.4,"Despesas com o automóvel":37.47}},"extraordinary":[]},"2026-03":{"income_salary":2210.22,"income_other":54.86,"trade_republic":0.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":82.65},"Impulsos":{"Levantamentos ATM":210.0,"Transferências MB Way (destino não identificado)":197.69,"Apostas (22bet/Bet22)":40.0},"Dívidas & crédito":{"Wizink (empréstimo)":400.0,"Primus (crédito pessoal)":282.6,"Cartão crédito (revolving)":133.96},"Transportes":{"Combustível (Repsol)":163.96,"Portagens (Via Verde)":23.0},"Saúde, subscrições e seguros":{"Seguros":30.47,"MBWay recorrente (por confirmar)":36.23,"Subscrições":12.44},"Alimentação":{"Restaurantes & cafés":99.65,"Supermercado":5.2},"Compras & lazer":{"Tech":12.85,"Roupa":50.1,"Outros lazer/compras":65.0,"Marketplaces":330.23}},"extraordinary":[]},"2026-04":{"income_salary":3651.06,"income_other":27.41,"trade_republic":0.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":160.82},"Dívidas & crédito":{"Wizink (empréstimo)":500.0,"Primus (crédito pessoal)":282.6,"Transf. para o estrangeiro":500.0},"Impulsos":{"Levantamentos ATM":230.0,"Transferências MB Way (destino não identificado)":45.34,"Apostas (22bet/Bet22)":30.0},"Saúde, subscrições e seguros":{"Seguros":31.43,"Subscrições":13.22,"MBWay recorrente (por confirmar)":36.23},"Alimentação":{"Restaurantes & cafés":42.5,"Supermercado":7.59},"Compras & lazer":{"Outros lazer/compras":83.44,"Roupa":17.1,"Outros (não classificado)":10.0,"Tech":19.99,"Marketplaces":97.27},"Transportes":{"Portagens (Via Verde)":24.45}},"extraordinary":[]},"2026-05":{"income_salary":2210.22,"income_other":362.21,"trade_republic":0.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":82.65},"Impulsos":{"Levantamentos ATM":710.0,"Transferências MB Way (destino não identificado)":117.4,"Apostas (22bet/Bet22)":30.0},"Dívidas & crédito":{"Dívida ao Estado (prestações IGCP)":175.98,"Primus (crédito pessoal)":282.6,"Transf. para o estrangeiro":500.0,"Cartão crédito (revolving)":153.5},"Saúde, subscrições e seguros":{"Seguros":31.94,"Comissões bancárias":3.12,"Farmácia & saúde":12.5,"Educação/formação":221.0,"Subscrições":12.44},"Transportes":{"Portagens (Via Verde)":25.99},"Alimentação":{"Restaurantes & cafés":32.05},"Compras & lazer":{"Marketplaces":193.09,"Outros (não classificado)":9.21,"Tech":17.5}},"extraordinary":[]},"2026-06":{"income_salary":2210.22,"income_other":0.0,"trade_republic":0.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":69.9,"Eletricidade (EDP)":104.68},"Dívidas & crédito":{"Wizink (empréstimo)":50.0,"Primus (crédito pessoal)":282.6,"Cartão crédito (revolving)":141.63},"Impulsos":{"Levantamentos ATM":150.0,"Transferências MB Way (destino não identificado)":73.0,"Apostas (22bet/Bet22)":20.0},"Saúde, subscrições e seguros":{"Seguros":31.91,"Comissões bancárias":3.12,"Educação/formação":221.0,"Subscrições":12.44},"Alimentação":{"Restaurantes & cafés":36.1},"Transportes":{"Combustível (Repsol)":67.44,"Despesas com o automóvel":59.0,"Portagens (Via Verde)":11.89},"Compras & lazer":{"Tech":38.49,"Outros lazer/compras":16.37,"Roupa":110.96,"Marketplaces":65.17}},"extraordinary":[]},"2026-07":{"income_salary":0.0,"income_other":0.0,"trade_republic":0.0,"expenses":{"Habitação":{"Crédito habitação (prestação)":417.86,"Condomínio":69.9},"Dívidas & crédito":{"Wizink (empréstimo)":350.0,"Primus (crédito pessoal)":282.6,"Cartão crédito (revolving)":47.9},"Saúde, subscrições e seguros":{"Seguros":31.89,"Comissões bancárias":3.12,"Subscrições":12.44},"Impulsos":{"Levantamentos ATM":160.0,"Transferências MB Way (destino não identificado)":126.0,"Apostas (22bet/Bet22)":20.0},"Transportes":{"Portagens (Via Verde)":23.74,"Combustível (Repsol)":85.46},"Alimentação":{"Restaurantes & cafés":101.55}},"extraordinary":[]}}
-</script>
-<script>
-const MONTHLY = JSON.parse(document.getElementById('data-script').textContent);
 
-const MONTH_ORDER = ['2025-08','2025-09','2025-10','2025-11','2025-12','2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07'];
-const COMPLETE_MONTHS = MONTH_ORDER.filter(k => k !== '2026-07');
-const MONTH_LABELS = {
-  '2025-08':'Agosto 2025','2025-09':'Setembro 2025','2025-10':'Outubro 2025','2025-11':'Novembro 2025','2025-12':'Dezembro 2025',
-  '2026-01':'Janeiro 2026','2026-02':'Fevereiro 2026','2026-03':'Março 2026','2026-04':'Abril 2026','2026-05':'Maio 2026',
-  '2026-06':'Junho 2026','2026-07':'Julho 2026 (parcial, até dia 21)'
-};
-const PERIOD_LABEL = '01/08/2025 → 21/07/2026';
-const CURRENT_BALANCE_TODAY = 28.07; // Abanca 24,61€ (18/07/2026) + Revolut 3,46€ (14/07/2026), últimos saldos reais nos extratos
-const EMERGENCY_FUND_BALANCE = 4680; // saldo Trade Republic — conta fora destes extratos, valor reportado pelo utilizador
+<script>
+// ---------- Ligação ao Supabase ----------
+const SUPABASE_URL = 'https://olhowqwywrzfmkavwmwo.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_enyoyPz3KAkH8R1FrZeYHg_t9r_9IQW';
+const REST = SUPABASE_URL + '/rest/v1/';
+const SB_HEADERS = { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY };
+
+async function sbFetch(table, query) {
+  const res = await fetch(REST + table + '?' + (query || 'select=*'), { headers: SB_HEADERS });
+  if (!res.ok) throw new Error(`Falha ao carregar "${table}" (HTTP ${res.status})`);
+  return res.json();
+}
+
+// ---------- Estado global (preenchido após o fetch) ----------
+let MONTHLY = {};
+let MONTH_ORDER = [];
+let COMPLETE_MONTHS = [];
+let MONTH_LABELS = {};
+let PERIOD_LABEL = '';
+let CURRENT_BALANCE_TODAY = 0;
+let EMERGENCY_FUND_BALANCE = 0;
+
+const MONTH_NAMES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+function labelForMonth(mk) {
+  const [y, m] = mk.split('-');
+  return `${MONTH_NAMES_PT[parseInt(m,10)-1]} ${y}`;
+}
 
 const CATEGORY_COLORS = {
   'Dívidas & crédito': '#ef6461',
@@ -147,12 +165,17 @@ const CATEGORY_COLORS = {
   'Impulsos': '#e8895c',
   'Alimentação': '#3ecf8e',
   'Saúde, subscrições e seguros': '#8a97a3',
+  'Educação/Formação': '#7bc9d6',
+  'Comissões bancárias': '#b0b8c1',
+  'Cripto': '#f0857a',
 };
-const CATEGORY_ORDER = ['Dívidas & crédito','Habitação','Compras & lazer','Impulsos','Transportes','Saúde, subscrições e seguros','Alimentação'];
+const CATEGORY_ORDER = ['Dívidas & crédito','Habitação','Compras & lazer','Impulsos','Transportes','Saúde, subscrições e seguros','Alimentação','Educação/Formação','Comissões bancárias','Cripto'];
 
 const SUBCAT_KIND = {
   'Habitação': { '*': 'fixed' },
   'Dívidas & crédito': { '*': 'fixed' },
+  'Comissões bancárias': { '*': 'fixed' },
+  'Educação/Formação': { 'Formação/Propinas': 'fixed', 'Livrarias': 'discretionary' },
   'Transportes': {
     'Seguro automóvel (Mapfre)': 'fixed',
     'Combustível (Repsol)': 'essential',
@@ -160,13 +183,14 @@ const SUBCAT_KIND = {
     'Portagens (Via Verde)': 'essential',
   },
   'Saúde, subscrições e seguros': {
-    'Seguros': 'fixed', 'Subscrições': 'fixed', 'Comissões bancárias': 'fixed',
+    'Seguros': 'fixed', 'Subscrições': 'fixed',
     'MBWay recorrente (por confirmar)': 'fixed',
-    'Educação/formação': 'fixed', 'Farmácia & saúde': 'essential',
+    'Farmácia & saúde': 'essential',
   },
   'Alimentação': { '*': 'essential' },
   'Compras & lazer': { '*': 'discretionary' },
   'Impulsos': { '*': 'discretionary' },
+  'Cripto': { '*': 'discretionary' },
 };
 function kindOf(cat, sub) {
   const rules = SUBCAT_KIND[cat] || {};
@@ -258,7 +282,7 @@ function computeView(filter) {
   const globalAvgSalary = (() => {
     const g = emptyAgg();
     COMPLETE_MONTHS.forEach(k => addMonth(g, k));
-    return g.income_salary / COMPLETE_MONTHS.length;
+    return g.income_salary / (COMPLETE_MONTHS.length || 1);
   })();
   const valorHoraBase = avgSalary > 0 ? avgSalary : globalAvgSalary;
   const valorHora = valorHoraBase / 173;
@@ -280,8 +304,6 @@ function computeView(filter) {
 }
 
 // ---------- Rendering ----------
-
-function el(html) { const d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstElementChild; }
 
 function renderFilterOptions() {
   const sel = document.getElementById('monthFilter');
@@ -317,7 +339,7 @@ function renderSection1(v) {
 }
 
 function renderDonutAndLegend(v) {
-  const divisor = v.isAll ? v.avgDivisor : 1; // averages when scope spans multiple months, actuals for a single month
+  const divisor = v.isAll ? v.avgDivisor : 1;
   const displayTotals = {};
   for (const c of CATEGORY_ORDER) displayTotals[c] = (v.catTotals[c] || 0) / divisor;
 
@@ -340,7 +362,7 @@ function renderDonutAndLegend(v) {
     const li = document.createElement('li');
     li.innerHTML = `
       <details>
-        <summary><span class="dot" style="background:${CATEGORY_COLORS[c]}"></span><span class="name">${c}</span><span class="amt">${fmt(displayTotals[c])}${v.isAll ? '/mês' : ''}</span><span class="pct">${pct(v.catPct[c])}</span><span class="chev">&#8250;</span></summary>
+        <summary><span class="dot" style="background:${CATEGORY_COLORS[c] || '#666'}"></span><span class="name">${c}</span><span class="amt">${fmt(displayTotals[c])}${v.isAll ? '/mês' : ''}</span><span class="pct">${pct(v.catPct[c])}</span><span class="chev">&#8250;</span></summary>
         <ul class="subitems">${subItems}</ul>
       </details>`;
     legend.appendChild(li);
@@ -375,9 +397,10 @@ function renderSection3(v) {
 function renderSection4(v) {
   const d = v.avgDivisor;
   const isAllAvgBasis = v.isAll;
-  const mbway = isAllAvgBasis ? (subcatValue(v.agg, 'Saúde, subscrições e seguros', 'MBWay recorrente (por confirmar)') / d) : subcatValue(v.agg, 'Saúde, subscrições e seguros', 'MBWay recorrente (por confirmar)');
-  const subs = isAllAvgBasis ? (subcatValue(v.agg, 'Saúde, subscrições e seguros', 'Subscrições') / d) : subcatValue(v.agg, 'Saúde, subscrições e seguros', 'Subscrições');
-  const comissoes = isAllAvgBasis ? (subcatValue(v.agg, 'Saúde, subscrições e seguros', 'Comissões bancárias') / d) : subcatValue(v.agg, 'Saúde, subscrições e seguros', 'Comissões bancárias');
+  const basis = x => isAllAvgBasis ? x / d : x;
+  const mbway = basis(subcatValue(v.agg, 'Saúde, subscrições e seguros', 'MBWay recorrente (por confirmar)'));
+  const subs = basis(subcatValue(v.agg, 'Saúde, subscrições e seguros', 'Subscrições'));
+  const comissoes = basis(subcatValue(v.agg, 'Comissões bancárias', 'Manutenção de conta'));
   const rows = [
     ['Serviço recorrente MBWay "1600-404 Lisboa"', mbway, 'confirmar o que é'],
     ['Subscrições (Spotify, Patreon, Apple...)', subs, 'rever se todas usadas'],
@@ -425,7 +448,7 @@ function renderSection6(v) {
       <div class="card" style="background:var(--panel2)"><div class="lbl mini">Ao ritmo de contribuição ${v.isAll ? 'médio' : 'deste mês'} (${fmt2(trRate)}/mês)</div><div class="val ${monthsToGoal ? 'pos' : 'warncol'}" style="font-size:19px">${monthsToGoal ? '~' + monthsToGoal.toFixed(1) + ' meses' : 'sem contribuição'}</div></div>
       <div class="card" style="background:var(--panel2)"><div class="lbl mini">Saldo hoje nas contas do dia a dia</div><div class="val neg" style="font-size:19px">${fmt2(CURRENT_BALANCE_TODAY)}</div></div>
     </div>
-    <div class="note">Saldo do Trade Republic reportado pelo utilizador (conta fora destes extratos). Contribuições identificadas nestes extratos: ago–nov/25 regulares, ${v.isAll ? 'praticamente paradas desde dez/25' : (trRate > 0 ? 'ativa neste mês' : 'sem transferência registada neste mês')}.</div>
+    <div class="note">Saldo do Trade Republic reportado pelo utilizador (conta fora destes extratos). Contribuições identificadas nestes extratos: ${trRate > 0 ? 'ativa neste período' : 'sem transferência registada neste período'}.</div>
   `;
 }
 
@@ -448,7 +471,7 @@ function renderSection8(v) {
   const cartaoRevolving = basis(subcatValue(v.agg, 'Dívidas & crédito', 'Cartão crédito (revolving)'));
   const mbway = basis(subcatValue(v.agg, 'Saúde, subscrições e seguros', 'MBWay recorrente (por confirmar)'));
   const seguros = basis(subcatValue(v.agg, 'Saúde, subscrições e seguros', 'Seguros'));
-  const comissoes = basis(subcatValue(v.agg, 'Saúde, subscrições e seguros', 'Comissões bancárias'));
+  const comissoes = basis(subcatValue(v.agg, 'Comissões bancárias', 'Manutenção de conta'));
   const rows = [
     ['Wizink + cartão crédito (revolving)', wizink + cartaoRevolving, (wizink + cartaoRevolving) * 12 * 0.4],
     ['Serviço recorrente MBWay "1600-404 Lisboa"', mbway, mbway * 12],
@@ -464,9 +487,9 @@ function renderSection8(v) {
 }
 
 function renderSection9(v) {
-  const today = new Date(2026, 6, 21);
-  const yearEnd = new Date(2026, 11, 31);
-  const monthsLeft = (yearEnd - today) / (1000 * 60 * 60 * 24 * 30.44);
+  const today = new Date();
+  const yearEnd = new Date(today.getFullYear(), 11, 31);
+  const monthsLeft = Math.max(0.1, (yearEnd - today) / (1000 * 60 * 60 * 24 * 30.44));
   const saldoRate = v.isAll ? v.avgSaldo : v.saldo;
   const projectedTheoretical = CURRENT_BALANCE_TODAY + saldoRate * monthsLeft;
   const impulsos = v.catTotals['Impulsos'] || 0;
@@ -477,13 +500,13 @@ function renderSection9(v) {
 
   document.getElementById('sec9').innerHTML = `
     <div class="card">
-      <div class="lbl mini">Projeção de saldo até 31/12/2026 (~${monthsLeft.toFixed(1)} meses restantes)</div>
+      <div class="lbl mini">Projeção de saldo até 31/12 (~${monthsLeft.toFixed(1)} meses restantes)</div>
       <div class="flexrow" style="margin-top:10px;">
         <div class="kpi"><div class="val" style="font-size:20px">${fmt2(CURRENT_BALANCE_TODAY)}</div><div class="sub">hoje</div></div>
         <div style="color:var(--mut);font-size:20px;">→</div>
         <div class="kpi"><div class="val ${projectedTheoretical >= CURRENT_BALANCE_TODAY ? 'pos' : 'warncol'}" style="font-size:20px">${projectedTheoretical >= 0 ? '+' : ''}${fmt(projectedTheoretical)}</div><div class="sub">${v.isAll ? 'ao ritmo médio real observado' : 'se este mês se repetir até dezembro'}</div></div>
       </div>
-      <div class="note">Baseado no saldo real das contas do dia a dia hoje (Abanca+Revolut) e no saldo médio mensal ${v.isAll ? 'do período' : 'deste mês'}. Um imprevisto tipo o de ago/25 esvazia a conta de imediato — não há almofada nas contas correntes.</div>
+      <div class="note">Baseado no saldo real das contas do dia a dia hoje (Abanca+Revolut) e no saldo médio mensal ${v.isAll ? 'do período' : 'deste mês'}. Um imprevisto esvazia a conta de imediato — não há almofada nas contas correntes.</div>
     </div>
     <div class="card">
       <div class="lbl mini">Classificação do impulso ${v.isAll ? '' : '(mês selecionado)'}</div>
@@ -516,9 +539,75 @@ function render(filter) {
   renderSection9(v);
 }
 
-renderFilterOptions();
-render('all');
+// ---------- Carregamento e arranque ----------
+async function init() {
+  try {
+    const [transacoes, entradas, poupanca, parametros, contas] = await Promise.all([
+      sbFetch('transacoes'),
+      sbFetch('entradas'),
+      sbFetch('poupanca'),
+      sbFetch('parametros'),
+      sbFetch('contas_bancarias'),
+    ]);
 
+    const paramMap = {};
+    parametros.forEach(p => paramMap[p.chave] = parseFloat(p.valor));
+    CURRENT_BALANCE_TODAY = paramMap['saldo_hoje_contas'] || 0;
+    EMERGENCY_FUND_BALANCE = paramMap['saldo_reserva_emergencia'] || 0;
+
+    MONTHLY = {};
+    function ensure(mk) {
+      if (!MONTHLY[mk]) MONTHLY[mk] = { income_salary: 0, income_other: 0, trade_republic: 0, expenses: {}, extraordinary: [] };
+      return MONTHLY[mk];
+    }
+    entradas.forEach(e => {
+      const m = ensure(e.mes_referencia);
+      const val = parseFloat(e.valor);
+      if (e.tipo === 'salario') m.income_salary += val; else m.income_other += val;
+    });
+    poupanca.forEach(p => {
+      const m = ensure(p.mes_referencia);
+      m.trade_republic += parseFloat(p.valor);
+    });
+    transacoes.forEach(t => {
+      const m = ensure(t.mes_referencia);
+      const val = parseFloat(t.valor);
+      if (t.extraordinario) {
+        m.extraordinary.push({ desc: t.descricao, amount: -val, date: t.data });
+        return;
+      }
+      m.expenses[t.categoria] = m.expenses[t.categoria] || {};
+      m.expenses[t.categoria][t.subcategoria] = (m.expenses[t.categoria][t.subcategoria] || 0) + val;
+    });
+
+    MONTH_ORDER = Object.keys(MONTHLY).sort();
+    COMPLETE_MONTHS = MONTH_ORDER.length > 1 ? MONTH_ORDER.slice(0, -1) : MONTH_ORDER;
+    MONTH_LABELS = {};
+    MONTH_ORDER.forEach(mk => { MONTH_LABELS[mk] = labelForMonth(mk); });
+
+    if (MONTH_ORDER.length) {
+      const first = MONTH_ORDER[0], last = MONTH_ORDER[MONTH_ORDER.length - 1];
+      PERIOD_LABEL = `${first} → ${last}`;
+    }
+
+    const contaNomes = contas.map(c => c.nome_conta).join(' + ');
+    document.getElementById('periodLabel').textContent = `${contaNomes} (cruzadas) · ${PERIOD_LABEL}`;
+
+    renderFilterOptions();
+    render('all');
+
+    document.getElementById('loadState').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+  } catch (err) {
+    document.getElementById('loadState').style.display = 'none';
+    const errEl = document.getElementById('errState');
+    errEl.style.display = 'block';
+    errEl.textContent = 'Não foi possível carregar os dados: ' + err.message;
+    console.error(err);
+  }
+}
+
+init();
 </script>
 </body>
 </html>
