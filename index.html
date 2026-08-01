@@ -169,7 +169,7 @@ const CATEGORY_COLORS = {
   'Comissões bancárias': '#b0b8c1',
   'Cripto': '#f0857a',
 };
-const CATEGORY_ORDER = ['Dívidas & crédito','Habitação','Compras & lazer','Impulsos','Transportes','Saúde, subscrições e seguros','Alimentação','Educação/Formação','Comissões bancárias','Cripto'];
+const CATEGORY_ORDER = ['Dívidas & crédito','Habitação','Compras & lazer','Impulsos','Transportes','Saúde & seguros','Alimentação','Educação/Formação','Comissões bancárias','Cripto'];
 
 const SUBCAT_KIND = {
   'Habitação': { '*': 'fixed' },
@@ -182,13 +182,12 @@ const SUBCAT_KIND = {
     'Despesas com o automóvel': 'essential',
     'Portagens (Via Verde)': 'essential',
   },
-  'Saúde, subscrições e seguros': {
-    'Seguros': 'fixed', 'Subscrições': 'fixed',
-    'MBWay recorrente (por confirmar)': 'fixed',
+  'Saúde & seguros': {
+    'Seguros': 'fixed',
     'Farmácia & saúde': 'essential',
   },
   'Alimentação': { '*': 'essential' },
-  'Compras & lazer': { '*': 'discretionary' },
+  'Compras & lazer': { '*': 'discretionary', 'Subscrições': 'fixed' },
   'Impulsos': { '*': 'discretionary' },
   'Cripto': { '*': 'discretionary' },
 };
@@ -398,11 +397,9 @@ function renderSection4(v) {
   const d = v.avgDivisor;
   const isAllAvgBasis = v.isAll;
   const basis = x => isAllAvgBasis ? x / d : x;
-  const mbway = basis(subcatValue(v.agg, 'Saúde, subscrições e seguros', 'MBWay recorrente (por confirmar)'));
-  const subs = basis(subcatValue(v.agg, 'Saúde, subscrições e seguros', 'Subscrições'));
+  const subs = basis(subcatValue(v.agg, 'Compras & lazer', 'Subscrições'));
   const comissoes = basis(subcatValue(v.agg, 'Comissões bancárias', 'Manutenção de conta'));
   const rows = [
-    ['Serviço recorrente MBWay "1600-404 Lisboa"', mbway, 'confirmar o que é'],
     ['Subscrições (Spotify, Patreon, Apple...)', subs, 'rever se todas usadas'],
     ['Comissões manutenção de conta', comissoes, 'mudar p/ conta isenta'],
   ];
@@ -469,12 +466,12 @@ function renderSection8(v) {
   const basis = v.isAll ? (x => x / d) : (x => x);
   const wizink = basis(subcatValue(v.agg, 'Dívidas & crédito', 'Wizink (empréstimo)'));
   const cartaoRevolving = basis(subcatValue(v.agg, 'Dívidas & crédito', 'Cartão crédito (revolving)'));
-  const mbway = basis(subcatValue(v.agg, 'Saúde, subscrições e seguros', 'MBWay recorrente (por confirmar)'));
-  const seguros = basis(subcatValue(v.agg, 'Saúde, subscrições e seguros', 'Seguros'));
+  const internetTv = basis(subcatValue(v.agg, 'Habitação', 'Internet & TV (NOS)'));
+  const seguros = basis(subcatValue(v.agg, 'Saúde & seguros', 'Seguros'));
   const comissoes = basis(subcatValue(v.agg, 'Comissões bancárias', 'Manutenção de conta'));
   const rows = [
     ['Wizink + cartão crédito (revolving)', wizink + cartaoRevolving, (wizink + cartaoRevolving) * 12 * 0.4],
-    ['Serviço recorrente MBWay "1600-404 Lisboa"', mbway, mbway * 12],
+    ['Internet & TV (NOS)', internetTv, internetTv * 12 * 0.15],
     ['Seguros diversos', seguros, seguros * 12 * 0.2],
     ['Comissões de manutenção de conta', comissoes, comissoes * 12],
   ].filter(r => r[1] > 0.01);
