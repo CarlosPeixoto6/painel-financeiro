@@ -534,7 +534,7 @@ function render(filter) {
 async function init() {
   try {
     const [transacoes, entradas, poupanca, parametros, contas, categorias, subcategorias] = await Promise.all([
-      sbFetch('transacoes'),
+      sbFetch('transacoes', 'select=*,subcategorias(nome,categoria)'),
       sbFetch('entradas'),
       sbFetch('poupanca'),
       sbFetch('parametros'),
@@ -587,8 +587,12 @@ async function init() {
         m.extraordinary.push({ desc: t.descricao, amount: -val, date: t.data });
         return;
       }
-      m.expenses[t.categoria] = m.expenses[t.categoria] || {};
-      m.expenses[t.categoria][t.subcategoria] = (m.expenses[t.categoria][t.subcategoria] || 0) + val;
+      // Fonte de verdade: join via subcategoria_id (FK). Fallback ao texto solto
+      // só por segurança, para transações antigas sem subcategoria_id preenchido.
+      const cat = t.subcategorias ? t.subcategorias.categoria : t.categoria;
+      const sub = t.subcategorias ? t.subcategorias.nome : t.subcategoria;
+      m.expenses[cat] = m.expenses[cat] || {};
+      m.expenses[cat][sub] = (m.expenses[cat][sub] || 0) + val;
     });
 
     MONTH_ORDER = Object.keys(MONTHLY).sort();
