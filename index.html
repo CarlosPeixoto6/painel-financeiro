@@ -171,7 +171,7 @@ function kindOf(cat, sub) {
   return rules[sub] || rules['*'] || 'discretionary';
 }
 function flagsOf(cat, sub) {
-   return (SUBCAT_FLAGS[cat] && SUBCAT_FLAGS[cat][sub]) || { fuga_dinheiro: false, renegociavel: false, poupanca_potencial_pct: 0, alto_risco: false };
+   return (SUBCAT_FLAGS[cat] && SUBCAT_FLAGS[cat][sub]) || { fuga_dinheiro: false, renegociavel: false, poupanca_potencial_pct: 0, alto_risco: false, nota: '' };
 }
 
 function fmt(n) {
@@ -217,7 +217,8 @@ function fixedEssentialTotal(agg) {
 function fugaDinheiroItems(agg) {
    const list = [];
    for (const [cat, subs] of Object.entries(agg.expenses)) for (const [sub, amt] of Object.entries(subs)) {
-     if (flagsOf(cat, sub).fuga_dinheiro && amt > 0) list.push({ cat, sub, amt });
+     const f = flagsOf(cat, sub);
+     if (f.fuga_dinheiro && amt > 0) list.push({ cat, sub, amt, nota: f.nota });
    }
    list.sort((a, b) => b.amt - a.amt);
    return list;
@@ -404,9 +405,9 @@ function renderSection4(v) {
   const items = fugaDinheiroItems(v.agg).map(it => ({ ...it, val: basis(it.amt) }));
   const total = items.reduce((a, it) => a + it.val, 0);
   document.getElementById('sec4').innerHTML = `
-    <tr><th>Origem</th><th class="right">${v.isAll ? 'Mensal (média)' : 'Neste mês'}</th><th class="right">Anual estimado</th></tr>
-    ${items.map(it => `<tr><td>${it.sub}</td><td class="right ${it.val > 30 ? 'warncol' : ''}">${fmt2(it.val)}</td><td class="right">${fmt(it.val * 12)}</td></tr>`).join('') || '<tr><td colspan="3">Sem fugas identificadas neste período</td></tr>'}
-    <tr><td><b>Total identificado</b></td><td></td><td class="right"><b>${fmt(total * 12)}/ano</b></td></tr>
+    <tr><th>Origem</th><th class="right">${v.isAll ? 'Mensal (média)' : 'Neste mês'}</th><th class="right">Anual estimado</th><th>Ação</th></tr>
+    ${items.map(it => `<tr><td>${it.sub}</td><td class="right ${it.val > 30 ? 'warncol' : ''}">${fmt2(it.val)}</td><td class="right">${fmt(it.val * 12)}</td><td>${it.nota || '—'}</td></tr>`).join('') || '<tr><td colspan="4">Sem fugas identificadas neste período</td></tr>'}
+    <tr><td><b>Total identificado</b></td><td></td><td class="right"><b>${fmt(total * 12)}/ano</b></td><td></td></tr>
   `;
 }
 
@@ -561,6 +562,7 @@ async function init() {
         renegociavel: !!s.renegociavel,
         poupanca_potencial_pct: parseFloat(s.poupanca_potencial_pct) || 0,
         alto_risco: !!s.alto_risco,
+        nota: s.nota || '',
      };
     });
 
