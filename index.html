@@ -157,40 +157,11 @@ function labelForMonth(mk) {
   return `${MONTH_NAMES_PT[parseInt(m,10)-1]} ${y}`;
 }
 
-const CATEGORY_COLORS = {
-  'Dívidas & crédito': '#ef6461',
-  'Habitação': '#f0b94d',
-  'Compras & lazer': '#c78ff0',
-  'Transportes': '#5aa9e6',
-  'Impulsos': '#e8895c',
-  'Alimentação': '#3ecf8e',
-  'Saúde, subscrições e seguros': '#8a97a3',
-  'Educação/Formação': '#7bc9d6',
-  'Comissões bancárias': '#b0b8c1',
-  'Cripto': '#f0857a',
-};
-const CATEGORY_ORDER = ['Dívidas & crédito','Habitação','Compras & lazer','Impulsos','Transportes','Saúde & seguros','Alimentação','Educação/Formação','Comissões bancárias','Cripto'];
-
-const SUBCAT_KIND = {
-  'Habitação': { '*': 'fixed' },
-  'Dívidas & crédito': { '*': 'fixed' },
-  'Comissões bancárias': { '*': 'fixed' },
-  'Educação/Formação': { 'Formação/Propinas': 'fixed', 'Livrarias': 'discretionary' },
-  'Transportes': {
-    'Seguro automóvel (Mapfre)': 'fixed',
-    'Combustível (Repsol)': 'essential',
-    'Despesas com o automóvel': 'essential',
-    'Portagens (Via Verde)': 'essential',
-  },
-  'Saúde & seguros': {
-    'Seguros': 'fixed',
-    'Farmácia & saúde': 'essential',
-  },
-  'Alimentação': { '*': 'essential' },
-  'Compras & lazer': { '*': 'discretionary', 'Subscrições': 'fixed' },
-  'Impulsos': { '*': 'discretionary' },
-  'Cripto': { '*': 'discretionary' },
-};
+// Preenchidos a partir das tabelas "categorias" e "subcategorias" (Supabase) no init().
+// Para adicionar, mover ou remover uma categoria/subcategoria: editar a BD, nunca este ficheiro.
+let CATEGORY_COLORS = {};
+let CATEGORY_ORDER = [];
+let SUBCAT_KIND = {};
 function kindOf(cat, sub) {
   const rules = SUBCAT_KIND[cat] || {};
   return rules[sub] || rules['*'] || 'discretionary';
@@ -339,16 +310,22 @@ function renderSection1(v) {
 
 function renderDonutAndLegend(v) {
   const divisor = v.isAll ? v.avgDivisor : 1;
-  const displayTotals = {};
-  for (const c of CATEGORY_ORDER) displayTotals[c] = (v.catTotals[c] || 0) / divisor;
 
-  const cats = CATEGORY_ORDER.filter(c => (v.catTotals[c] || 0) > 0);
+  // Une CATEGORY_ORDER (da BD) com quaisquer categorias presentes nas transações
+  // mas ausentes na tabela "categorias", para o donut nunca ficar vazio por mismatch.
+  const allCats = CATEGORY_ORDER.slice();
+  Object.keys(v.catTotals).forEach(c => { if (!allCats.includes(c)) allCats.push(c); });
+
+  const displayTotals = {};
+  allCats.forEach(c => { displayTotals[c] = (v.catTotals[c] || 0) / divisor; });
+
+  const cats = allCats.filter(c => (v.catTotals[c] || 0) > 0);
   let acc = 0;
   const stops = [];
   cats.forEach(c => {
     const start = acc;
-    acc += v.catPct[c];
-    stops.push(`${CATEGORY_COLORS[c]} ${start.toFixed(2)}% ${acc.toFixed(2)}%`);
+    acc += (v.catPct[c] || (v.expenses > 0 ? (v.catTotals[c] || 0) / v.expenses * 100 : 0));
+    stops.push(`${CATEGORY_COLORS[c] || '#5c6773'} ${start.toFixed(2)}% ${acc.toFixed(2)}%`);
   });
   document.getElementById('donut').style.background = stops.length ? `conic-gradient(${stops.join(',')})` : 'var(--panel2)';
 
@@ -361,7 +338,7 @@ function renderDonutAndLegend(v) {
     const li = document.createElement('li');
     li.innerHTML = `
       <details>
-        <summary><span class="dot" style="background:${CATEGORY_COLORS[c] || '#666'}"></span><span class="name">${c}</span><span class="amt">${fmt(displayTotals[c])}${v.isAll ? '/mês' : ''}</span><span class="pct">${pct(v.catPct[c])}</span><span class="chev">&#8250;</span></summary>
+        <summary><span class="dot" style="background:${CATEGORY_COLORS[c] || '#666'}"></span><span class="name">${c}</span><span class="amt">${fmt(displayTotals[c])}${v.isAll ? '/mês' : ''}</span><span class="pct">${pct(v.catPct[c] || (v.expenses > 0 ? (v.catTotals[c] || 0) / v.expenses * 100 : 0))}</span><span class="chev">&#8250;</span></summary>
         <ul class="subitems">${subItems}</ul>
       </details>`;
     legend.appendChild(li);
@@ -539,18 +516,27 @@ function render(filter) {
 // ---------- Carregamento e arranque ----------
 async function init() {
   try {
-    const [transacoes, entradas, poupanca, parametros, contas] = await Promise.all([
+    const [transacoes, entradas, poupanca, parametros, contas, categorias, subcategorias] = await Promise.all([
       sbFetch('transacoes'),
       sbFetch('entradas'),
       sbFetch('poupanca'),
       sbFetch('parametros'),
       sbFetch('contas_bancarias'),
+      sbFetch('categorias', 'select=*&order=ordem'),
+      sbFetch('subcategorias', 'select=*&order=ordem'),
     ]);
 
     const paramMap = {};
     parametros.forEach(p => paramMap[p.chave] = parseFloat(p.valor));
     CURRENT_BALANCE_TODAY = paramMap['saldo_hoje_contas'] || 0;
     EMERGENCY_FUND_BALANCE = paramMap['saldo_reserva_emergencia'] || 0;
+
+    CATEGORY_ORDER = categorias.map(c => c.nome);
+    categorias.forEach(c => { CATEGORY_COLORS[c.nome] = c.cor; });
+    subcategorias.forEach(s => {
+      SUBCAT_KIND[s.categoria] = SUBCAT_KIND[s.categoria] || {};
+      SUBCAT_KIND[s.categoria][s.nome] = s.tipo;
+    });
 
     MONTHLY = {};
     function ensure(mk) {
