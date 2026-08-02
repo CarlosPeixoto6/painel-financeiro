@@ -162,9 +162,16 @@ function labelForMonth(mk) {
 let CATEGORY_COLORS = {};
 let CATEGORY_ORDER = [];
 let SUBCAT_KIND = {};
+// SUBCAT_FLAGS[cat][sub] = { fuga_dinheiro, renegociavel, poupanca_potencial_pct, alto_risco }
+let SUBCAT_FLAGS = {};
+// CATEGORY_FLAGS[cat] = { flag_impulso }
+let CATEGORY_FLAGS = {};
 function kindOf(cat, sub) {
   const rules = SUBCAT_KIND[cat] || {};
   return rules[sub] || rules['*'] || 'discretionary';
+}
+function flagsOf(cat, sub) {
+   return (SUBCAT_FLAGS[cat] && SUBCAT_FLAGS[cat][sub]) || { fuga_dinheiro: false, renegociavel: false, poupanca_potencial_pct: 0, alto_risco: false };
 }
 
 function fmt(n) {
@@ -207,7 +214,28 @@ function fixedEssentialTotal(agg) {
   }
   return t;
 }
-function subcatValue(agg, cat, sub) { return (agg.expenses[cat] && agg.expenses[cat][sub]) || 0; }
+function fugaDinheiroItems(agg) {
+   const list = [];
+   for (const [cat, subs] of Object.entries(agg.expenses)) for (const [sub, amt] of Object.entries(subs)) {
+     if (flagsOf(cat, sub).fuga_dinheiro && amt > 0) list.push({ cat, sub, amt });
+   }
+   list.sort((a, b) => b.amt - a.amt);
+   return list;
+ }
+ function renegociavelItems(agg) {
+   const list = [];
+   for (const [cat, subs] of Object.entries(agg.expenses)) for (const [sub, amt] of Object.entries(subs)) {
+     const f = flagsOf(cat, sub);
+     if (f.renegociavel && amt > 0) list.push({ cat, sub, amt, pct: f.poupanca_potencial_pct });
+   }
+   list.sort((a, b) => b.amt - a.amt);
+   return list;
+ }
+ function impulsoTotal(catTotals) {
+   let t = 0;
+   for (const [cat, total] of Object.entries(catTotals)) if (CATEGORY_FLAGS[cat] && CATEGORY_FLAGS[cat].flag_impulso) t += (total || 0);
+   return t;
+ }
 function discretionarySubcats(agg) {
   const list = [];
   for (const [cat, subs] of Object.entries(agg.expenses)) for (const [sub, amt] of Object.entries(subs)) {
@@ -372,19 +400,13 @@ function renderSection3(v) {
 
 function renderSection4(v) {
   const d = v.avgDivisor;
-  const isAllAvgBasis = v.isAll;
-  const basis = x => isAllAvgBasis ? x / d : x;
-  const subs = basis(subcatValue(v.agg, 'Compras & lazer', 'Subscrições'));
-  const comissoes = basis(subcatValue(v.agg, 'Comissões bancárias', 'Manutenção de conta'));
-  const rows = [
-    ['Subscrições (Spotify, Patreon, Apple...)', subs, 'rever se todas usadas'],
-    ['Comissões manutenção de conta', comissoes, 'mudar p/ conta isenta'],
-  ];
-  const total = rows.reduce((a, r) => a + r[1], 0);
+  const basis = x => v.isAll ? x / d : x;
+  const items = fugaDinheiroItems(v.agg).map(it => ({ ...it, val: basis(it.amt) }));
+  const total = items.reduce((a, it) => a + it.val, 0);
   document.getElementById('sec4').innerHTML = `
-    <tr><th>Origem</th><th class="right">${v.isAll ? 'Mensal (média)' : 'Neste mês'}</th><th class="right">Anual estimado</th><th>Ação</th></tr>
-    ${rows.map(([name, val, action]) => `<tr><td>${name}</td><td class="right">${fmt2(val)}</td><td class="right">${fmt(val * 12)}</td><td class="${val > 30 ? 'warncol' : ''}">${action}</td></tr>`).join('')}
-    <tr><td><b>Total identificado</b></td><td></td><td class="right"><b>${fmt(total * 12)}/ano</b></td><td></td></tr>
+    <tr><th>Origem</th><th class="right">${v.isAll ? 'Mensal (média)' : 'Neste mês'}</th><th class="right">Anual estimado</th></tr>
+    ${items.map(it => `<tr><td>${it.sub}</td><td class="right ${it.val > 30 ? 'warncol' : ''}">${fmt2(it.val)}</td><td class="right">${fmt(it.val * 12)}</td></tr>`).join('') || '<tr><td colspan="3">Sem fugas identificadas neste período</td></tr>'}
+    <tr><td><b>Total identificado</b></td><td></td><td class="right"><b>${fmt(total * 12)}/ano</b></td></tr>
   `;
 }
 
@@ -441,21 +463,14 @@ function renderSection7(v) {
 function renderSection8(v) {
   const d = v.avgDivisor;
   const basis = v.isAll ? (x => x / d) : (x => x);
-  const wizink = basis(subcatValue(v.agg, 'Dívidas & crédito', 'Wizink (empréstimo)'));
-  const cartaoRevolving = basis(subcatValue(v.agg, 'Dívidas & crédito', 'Cartão crédito (revolving)'));
-  const internetTv = basis(subcatValue(v.agg, 'Habitação', 'Internet & TV (NOS)'));
-  const seguros = basis(subcatValue(v.agg, 'Saúde & seguros', 'Seguros'));
-  const comissoes = basis(subcatValue(v.agg, 'Comissões bancárias', 'Manutenção de conta'));
-  const rows = [
-    ['Wizink + cartão crédito (revolving)', wizink + cartaoRevolving, (wizink + cartaoRevolving) * 12 * 0.4],
-    ['Internet & TV (NOS)', internetTv, internetTv * 12 * 0.15],
-    ['Seguros diversos', seguros, seguros * 12 * 0.2],
-    ['Comissões de manutenção de conta', comissoes, comissoes * 12],
-  ].filter(r => r[1] > 0.01);
-  const totalPot = rows.reduce((a, r) => a + r[2], 0);
+  const items = renegociavelItems(v.agg).map(it => {
+  const cost = basis(it.amt);
+  return { name: it.sub, cost, pot: cost * 12 * it.pct };
+  }).filter(it => it.cost > 0.01);
+  const totalPot = items.reduce((a, it) => a + it.pot, 0);
   document.getElementById('sec8').innerHTML = `
     <tr><th>Conta</th><th class="right">Custo ${v.isAll ? 'médio/mês' : 'neste mês'}</th><th class="right">Poupança potencial/ano</th></tr>
-    ${rows.map(([name, cost, pot]) => `<tr><td>${name}</td><td class="right">${fmt2(cost)}</td><td class="right pos">~${fmt(pot)}</td></tr>`).join('')}
+     ${items.map(it => `<tr><td>${it.name}</td><td class="right">${fmt2(it.cost)}</td><td class="right pos">~${fmt(it.pot)}</td></tr>`).join('') || '<tr><td colspan="3">Sem contas renegociáveis identificadas</td></tr>'}
     <tr><td><b>Total potencial</b></td><td></td><td class="right pos"><b>~${fmt(totalPot)}</b></td></tr>
   `;
 }
@@ -466,10 +481,11 @@ function renderSection9(v) {
   const monthsLeft = Math.max(0.1, (yearEnd - today) / (1000 * 60 * 60 * 24 * 30.44));
   const saldoRate = v.isAll ? v.avgSaldo : v.saldo;
   const projectedTheoretical = CURRENT_BALANCE_TODAY + saldoRate * monthsLeft;
-  const impulsos = v.catTotals['Impulsos'] || 0;
+  const impulsos = impulsoTotal(v.catTotals);
   const impulsosPct = v.expenses > 0 ? impulsos / v.expenses * 100 : 0;
+  const topIsAltoRisco = v.topDiscretionary[0] && flagsOf(v.topDiscretionary[0].cat, v.topDiscretionary[0].sub).alto_risco;
   let severity = 'LIGEIRA', badgeClass = 'good';
-  if (impulsosPct > 25 || (v.topDiscretionary[0] && v.topDiscretionary[0].sub.includes('Apostas'))) { severity = 'MODERADA A GRAVE'; badgeClass = 'bad'; }
+  if (impulsosPct > 25 || topIsAltoRisco) { severity = 'MODERADA A GRAVE'; badgeClass = 'bad'; }
   else if (impulsosPct > 15) { severity = 'MODERADA'; badgeClass = 'warn'; }
 
   document.getElementById('sec9').innerHTML = `
@@ -532,10 +548,20 @@ async function init() {
     EMERGENCY_FUND_BALANCE = paramMap['saldo_reserva_emergencia'] || 0;
 
     CATEGORY_ORDER = categorias.map(c => c.nome);
-    categorias.forEach(c => { CATEGORY_COLORS[c.nome] = c.cor; });
+    categorias.forEach(c => {
+    CATEGORY_COLORS[c.nome] = c.cor;
+    CATEGORY_FLAGS[c.nome] = { flag_impulso: !!c.flag_impulso };
+    });
     subcategorias.forEach(s => {
       SUBCAT_KIND[s.categoria] = SUBCAT_KIND[s.categoria] || {};
       SUBCAT_KIND[s.categoria][s.nome] = s.tipo;
+      SUBCAT_FLAGS[s.categoria] = SUBCAT_FLAGS[s.categoria] || {};
+      SUBCAT_FLAGS[s.categoria][s.nome] = {
+        fuga_dinheiro: !!s.fuga_dinheiro,
+        renegociavel: !!s.renegociavel,
+        poupanca_potencial_pct: parseFloat(s.poupanca_potencial_pct) || 0,
+        alto_risco: !!s.alto_risco,
+     };
     });
 
     MONTHLY = {};
