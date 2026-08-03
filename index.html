@@ -67,6 +67,7 @@
   .filterbar select{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;cursor:pointer;}
   .filterbar select:hover{border-color:var(--acc);}
   .filterbar .scopepill{font-size:11.5px;color:var(--acc);background:rgba(90,169,230,.12);border:1px solid rgba(90,169,230,.35);border-radius:20px;padding:4px 12px;}
+  .filterbar .extrapill{font-size:11.5px;color:var(--warn);background:rgba(240,185,77,.12);border:1px solid rgba(240,185,77,.35);border-radius:20px;padding:4px 12px;cursor:default;}
   .loadstate{padding:80px 0;text-align:center;color:var(--sub);font-size:14px;}
   .errstate{padding:40px 0;text-align:center;color:var(--bad);font-size:14px;}
   @media(max-width:760px){.g4{grid-template-columns:repeat(2,1fr);}.g3{grid-template-columns:1fr;}.g2{grid-template-columns:1fr;}.flexrow{flex-direction:column;}.donut{margin:0 auto;}}
@@ -85,6 +86,7 @@
       <label for="monthFilter">Filtrar por mês</label>
       <select id="monthFilter" onchange="render(this.value)"></select>
       <span class="scopepill" id="scopePill"></span>
+      <span class="extrapill" id="extraPill" style="display:none;" title=""></span>
     </div>
 
     <h2><span class="n">1</span><span id="h2-1">Visão geral</span></h2>
@@ -550,9 +552,23 @@ function renderTecnicas(impulsosPct, hasAltoRisco, plataformasRisco) {
   `;
 }
 
+function renderExtraPill(v) {
+  const pill = document.getElementById('extraPill');
+  const items = v.extraordinary;
+  if (!items.length) {
+    pill.style.display = 'none';
+    return;
+  }
+  const total = items.reduce((a, it) => a - it.amount, 0);
+  pill.textContent = `⚠ ${items.length} extraordinário${items.length > 1 ? 's' : ''} excluído${items.length > 1 ? 's' : ''} (${fmt(total)})`;
+  pill.title = items.map(it => `${it.date} — ${it.desc}: ${fmt2(-it.amount)}`).join('\n');
+  pill.style.display = 'inline-block';
+}
+
 function render(filter) {
   const v = computeView(filter);
   document.getElementById('scopePill').textContent = v.label;
+  renderExtraPill(v);
   renderSection1(v);
   renderDonutAndLegend(v);
   renderSection3(v);
