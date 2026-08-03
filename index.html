@@ -166,6 +166,10 @@ let SUBCAT_KIND = {};
 let SUBCAT_FLAGS = {};
 // CATEGORY_FLAGS[cat] = { flag_impulso }
 let CATEGORY_FLAGS = {};
+Preenchidos a partir de "instituicoes_financeiras" e "tecnicas_anti_impulso" (Supabase) no init().
+INSTITUICOES[tipo] = { nome, processador, chave }
+let INSTITUICOES = {};
+let TECNICAS = [];
 function kindOf(cat, sub) {
   const rules = SUBCAT_KIND[cat] || {};
   return rules[sub] || rules['*'] || 'discretionary';
@@ -340,7 +344,7 @@ function renderSection1(v) {
   document.getElementById('sec1').innerHTML = `
     <div class="card kpi"><div class="lbl">Entradas</div><div class="val pos">${fmt(entradas)}</div><div class="sub">salário ${fmt(salPart)} + outras ${fmt(otherPart)}</div></div>
     <div class="card kpi"><div class="lbl">Saídas correntes</div><div class="val neg">${fmt(saidas)}</div><div class="sub">fixas+essenciais ${fmt(fixedPart)} + variáveis ${fmt(varPart)}</div></div>
-    <div class="card kpi"><div class="lbl">Fundo de emergência (Trade Republic)</div><div class="val" style="color:var(--acc)">${fmt(trRate)}${v.isAll ? '/mês' : ''}</div><div class="sub">≈${fmt(EMERGENCY_FUND_BALANCE)} acumulados, via J.P.Morgan AG</div></div>
+    <div class="card kpi"><div class="lbl">Fundo de emergência (${INSTITUICOES.reserva_emergencia.nome})</div>...via ${INSTITUICOES.reserva_emergencia.processador}</div></div>
     <div class="card kpi"><div class="lbl">Saldo líquido real</div><div class="val ${saldo >= 0 ? 'pos' : 'warncol'}">${saldo >= 0 ? '+' : ''}${fmt(saldo)}</div><div class="sub">${v.isAll ? 'saldo médio mensal real' : 'saldo real deste mês'}</div></div>
   `;
 }
@@ -392,7 +396,7 @@ function renderSection3(v) {
     <div>
       <div class="progresslabel"><span>Teórica (rendimento − despesas)</span><span><b>${pct(teorica)}</b></span></div>
       <div class="bar-outer"><div class="bar-inner" style="width:${Math.max(0, Math.min(100, teorica))}%;background:var(--acc)"></div></div>
-      <div class="mini">inclui a parte que vai para o Trade Republic e a parte não alocada</div>
+      <div class="mini">inclui a parte que vai para o ${INSTITUICOES.reserva_emergencia.nome} e a parte não alocada</div>
     </div>
     <div>
       <div class="progresslabel"><span>Real (saldo que efetivamente sobra)</span><span><b class="${real >= 15 ? 'pos' : 'warncol'}">${pct(real)}</b></span></div>
@@ -446,14 +450,14 @@ function renderSection6(v) {
   const monthsToGoal = trRate > 0 ? (falta / trRate) : null;
 
   document.getElementById('sec6').innerHTML = `
-    <div class="progresslabel"><span>${fmt(balance)} de ${fmt(goal)} (despesas fixas+essenciais × 6) — em Trade Republic</span><span><b>${pct(progressPct)}</b></span></div>
+    <div class="progresslabel"><span>${fmt(balance)} de ${fmt(goal)} (despesas fixas+essenciais × 6) — em ${INSTITUICOES.reserva_emergencia.nome}</span><span><b>${pct(progressPct)}</b></span></div>
     <div class="bar-outer"><div class="bar-inner" style="width:${progressPct}%;background:var(--good)"></div></div>
     <div class="split" style="margin-top:14px;">
       <div class="card" style="background:var(--panel2)"><div class="lbl mini">Falta</div><div class="val" style="font-size:19px">${fmt(falta)}</div></div>
       <div class="card" style="background:var(--panel2)"><div class="lbl mini">Ao ritmo de contribuição ${v.isAll ? 'médio' : 'deste mês'} (${fmt2(trRate)}/mês)</div><div class="val ${monthsToGoal ? 'pos' : 'warncol'}" style="font-size:19px">${monthsToGoal ? '~' + monthsToGoal.toFixed(1) + ' meses' : 'sem contribuição'}</div></div>
       <div class="card" style="background:var(--panel2)"><div class="lbl mini">Saldo hoje nas contas do dia a dia</div><div class="val neg" style="font-size:19px">${fmt2(CURRENT_BALANCE_TODAY)}</div></div>
     </div>
-    <div class="note">Saldo do Trade Republic reportado pelo utilizador (conta fora destes extratos). Contribuições identificadas nestes extratos: ${trRate > 0 ? 'ativa neste período' : 'sem transferência registada neste período'}.</div>
+    <div class="note">Saldo do ${INSTITUICOES.reserva_emergencia.nome} reportado pelo utilizador (conta fora destes extratos). Contribuições identificadas nestes extratos: ${trRate > 0 ? 'ativa neste período' : 'sem transferência registada neste período'}.</div>
   `;
 }
 
@@ -464,7 +468,7 @@ function renderSection7(v) {
   document.getElementById('sec7').innerHTML = `
     <div class="flexrow">
       <div class="kpi" style="flex:1"><div class="lbl">Transferir automaticamente no dia do salário</div><div class="val pos" style="font-size:32px">${pct(suggestedPct)}</div><div class="sub">≈ ${fmt(suggested)}${v.isAll ? '/mês' : ' neste mês'} do rendimento</div></div>
-      <div style="flex:1.4;font-size:13px;color:var(--sub);">Uma única ordem automática no dia do salário para a Trade Republic (fundo de emergência), substituindo as transferências manuais atuais. Ao atingir o objetivo dos 6 meses de despesas, redirecionar esta mesma ordem para investimento.</div>
+      <div style="flex:1.4;font-size:13px;color:var(--sub);">Uma única ordem automática no dia do salário para a ${INSTITUICOES.reserva_emergencia.nome} (fundo de emergência), substituindo as transferências manuais atuais. Ao atingir o objetivo dos 6 meses de despesas, redirecionar esta mesma ordem para investimento.</div>
     </div>
   `;
 }
@@ -493,7 +497,9 @@ function renderSection9(v) {
   const impulsos = impulsoTotal(v.catTotals);
   const impulsosPct = v.expenses > 0 ? impulsos / v.expenses * 100 : 0;
   const topIsAltoRisco = v.topDiscretionary[0] && flagsOf(v.topDiscretionary[0].cat, v.topDiscretionary[0].sub).alto_risco;
-  const plataformasRisco = altoRiscoPlataformas(v.agg).join('/') || 'plataformas de apostas';
+  const plataformasList = altoRiscoPlataformas(v.agg);
+  const hasAltoRisco = topIsAltoRisco || plataformasList.length > 0;
+  const plataformasRisco = plataformasList.join('/') || 'plataformas de apostas';
   let severity = 'LIGEIRA', badgeClass = 'good';
   if (impulsosPct > 25 || topIsAltoRisco) { severity = 'MODERADA A GRAVE'; badgeClass = 'bad'; }
   else if (impulsosPct > 15) { severity = 'MODERADA'; badgeClass = 'warn'; }
@@ -515,13 +521,32 @@ function renderSection9(v) {
     </div>
   `;
 
+  renderTecnicas(impulsosPct, hasAltoRisco, plataformasRisco);
+}
+
+function renderTecnicas(impulsosPct, hasAltoRisco, plataformasRisco) {
+  const activeConditions = new Set(['sempre']);
+  if (hasAltoRisco) activeConditions.add('alto_risco');
+  if (impulsosPct > 15) activeConditions.add('impulsos_moderado');
+  if (impulsosPct > 25) activeConditions.add('impulsos_grave');
+
+  const vars = {
+    instituicao_reserva: INSTITUICOES.reserva_emergencia.nome,
+    processador_reserva: INSTITUICOES.reserva_emergencia.processador,
+    instituicao_investimento: INSTITUICOES.investimento.nome,
+    plataformas_risco: plataformasRisco,
+  };
+
+  const cards = TECNICAS
+    .filter(t => activeConditions.has(t.condicao))
+    .map(t => {
+      const desc = t.descricao_template.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
+      return `<div class="tech"${t.destaque ? ' style="border-color:rgba(239,100,97,.35)"' : ''}><b${t.destaque ? ' class="neg"' : ''}>${t.titulo}</b><p>${desc}</p></div>`;
+    }).join('');
+
   document.getElementById('sec9b').innerHTML = `
     <div class="lbl mini" style="margin-bottom:10px;">Técnicas mais indicadas ao teu caso</div>
-    <div class="tech"><b>Contas separadas</b><p>Abanca/Revolut só para essenciais (renda, créditos, seguros) · Trade Republic só para o fundo de emergência, alimentado por uma ordem automática única · Interactive Brokers só para investir, depois de a reserva estar completa.</p></div>
-    <div class="tech"><b>Remover cartões guardados</b><p>Apagar o cartão gravado no ${plataformasRisco} e em apps de compras impulsivas — cada aposta exige fricção extra, não um toque.</p></div>
-    <div class="tech"><b>Regra das 72 horas</b><p>Para compras online acima de 30 € (roupa, tech, marketplaces): esperar 3 dias antes de confirmar.</p></div>
-    <div class="tech"><b>Paga-te primeiro</b><p>Automatizar a transferência da secção 7 no dia do salário, para o dinheiro sair da equação antes de chegar ao Revolut.</p></div>
-    <div class="tech" style="border-color:rgba(239,100,97,.35)"><b class="neg">Apoio profissional</b><p>Dado o padrão persistente e recorrente das apostas ao longo do período, vale a pena considerares falar com um profissional especializado em comportamento de jogo — não é um sinal de fraqueza, é a ferramenta certa para este tipo de padrão.</p></div>
+    ${cards}
   `;
 }
 
@@ -542,7 +567,7 @@ function render(filter) {
 // ---------- Carregamento e arranque ----------
 async function init() {
   try {
-    const [transacoes, entradas, poupanca, parametros, contas, categorias, subcategorias] = await Promise.all([
+    const [transacoes, entradas, poupanca, parametros, contas, categorias, subcategorias, instituicoes, tecnicas] = await Promise.all([
       sbFetch('transacoes', 'select=*,subcategorias(nome,categoria)'),
       sbFetch('entradas'),
       sbFetch('poupanca'),
@@ -550,6 +575,8 @@ async function init() {
       sbFetch('contas_bancarias'),
       sbFetch('categorias', 'select=*&order=ordem'),
       sbFetch('subcategorias', 'select=*&order=ordem'),
+      sbFetch('instituicoes_financeiras', 'select=*&order=ordem'),
+      sbFetch('tecnicas_anti_impulso', 'select=*&order=ordem'),
     ]);
 
     const paramMap = {};
@@ -557,6 +584,9 @@ async function init() {
     CURRENT_BALANCE_TODAY = paramMap['saldo_hoje_contas'] || 0;
     EMERGENCY_FUND_BALANCE = paramMap['saldo_reserva_emergencia'] || 0;
 
+    instituicoes.forEach(i => { INSTITUICOES[i.tipo] = { nome: i.nome, processador: i.processador, chave: i.chave }; });
+    TECNICAS = tecnicas;
+    
     CATEGORY_ORDER = categorias.map(c => c.nome);
     categorias.forEach(c => {
     CATEGORY_COLORS[c.nome] = c.cor;
