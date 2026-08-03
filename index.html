@@ -237,6 +237,14 @@ function fugaDinheiroItems(agg) {
    for (const [cat, total] of Object.entries(catTotals)) if (CATEGORY_FLAGS[cat] && CATEGORY_FLAGS[cat].flag_impulso) t += (total || 0);
    return t;
  }
+  function altoRiscoPlataformas(agg) {
+    const notas = new Set();
+    for (const [cat, subs] of Object.entries(agg.expenses)) for (const [sub, amt] of Object.entries(subs)) {
+    const f = flagsOf(cat, sub);
+    if (f.alto_risco && amt > 0 && f.nota) notas.add(f.nota);
+    }
+    return [...notas];
+ }
 function discretionarySubcats(agg) {
   const list = [];
   for (const [cat, subs] of Object.entries(agg.expenses)) for (const [sub, amt] of Object.entries(subs)) {
@@ -485,6 +493,7 @@ function renderSection9(v) {
   const impulsos = impulsoTotal(v.catTotals);
   const impulsosPct = v.expenses > 0 ? impulsos / v.expenses * 100 : 0;
   const topIsAltoRisco = v.topDiscretionary[0] && flagsOf(v.topDiscretionary[0].cat, v.topDiscretionary[0].sub).alto_risco;
+  const plataformasRisco = altoRiscoPlataformas(v.agg).join('/') || 'plataformas de apostas';
   let severity = 'LIGEIRA', badgeClass = 'good';
   if (impulsosPct > 25 || topIsAltoRisco) { severity = 'MODERADA A GRAVE'; badgeClass = 'bad'; }
   else if (impulsosPct > 15) { severity = 'MODERADA'; badgeClass = 'warn'; }
@@ -509,7 +518,7 @@ function renderSection9(v) {
   document.getElementById('sec9b').innerHTML = `
     <div class="lbl mini" style="margin-bottom:10px;">Técnicas mais indicadas ao teu caso</div>
     <div class="tech"><b>Contas separadas</b><p>Abanca/Revolut só para essenciais (renda, créditos, seguros) · Trade Republic só para o fundo de emergência, alimentado por uma ordem automática única · Interactive Brokers só para investir, depois de a reserva estar completa.</p></div>
-    <div class="tech"><b>Remover cartões guardados</b><p>Apagar o cartão gravado no 22bet/Bet22 e em apps de compras impulsivas — cada aposta exige fricção extra, não um toque.</p></div>
+    <div class="tech"><b>Remover cartões guardados</b><p>Apagar o cartão gravado no ${plataformasRisco} e em apps de compras impulsivas — cada aposta exige fricção extra, não um toque.</p></div>
     <div class="tech"><b>Regra das 72 horas</b><p>Para compras online acima de 30 € (roupa, tech, marketplaces): esperar 3 dias antes de confirmar.</p></div>
     <div class="tech"><b>Paga-te primeiro</b><p>Automatizar a transferência da secção 7 no dia do salário, para o dinheiro sair da equação antes de chegar ao Revolut.</p></div>
     <div class="tech" style="border-color:rgba(239,100,97,.35)"><b class="neg">Apoio profissional</b><p>Dado o padrão persistente e recorrente das apostas ao longo do período, vale a pena considerares falar com um profissional especializado em comportamento de jogo — não é um sinal de fraqueza, é a ferramenta certa para este tipo de padrão.</p></div>
