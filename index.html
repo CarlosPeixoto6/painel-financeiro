@@ -166,8 +166,8 @@ let SUBCAT_KIND = {};
 let SUBCAT_FLAGS = {};
 // CATEGORY_FLAGS[cat] = { flag_impulso }
 let CATEGORY_FLAGS = {};
-Preenchidos a partir de "instituicoes_financeiras" e "tecnicas_anti_impulso" (Supabase) no init().
-INSTITUICOES[tipo] = { nome, processador, chave }
+// Preenchidos a partir de "instituicoes_financeiras" e "tecnicas_anti_impulso" (Supabase) no init().
+// INSTITUICOES[tipo] = { nome, processador, chave }
 let INSTITUICOES = {};
 let TECNICAS = [];
 function kindOf(cat, sub) {
@@ -344,7 +344,7 @@ function renderSection1(v) {
   document.getElementById('sec1').innerHTML = `
     <div class="card kpi"><div class="lbl">Entradas</div><div class="val pos">${fmt(entradas)}</div><div class="sub">salário ${fmt(salPart)} + outras ${fmt(otherPart)}</div></div>
     <div class="card kpi"><div class="lbl">Saídas correntes</div><div class="val neg">${fmt(saidas)}</div><div class="sub">fixas+essenciais ${fmt(fixedPart)} + variáveis ${fmt(varPart)}</div></div>
-    <div class="card kpi"><div class="lbl">Fundo de emergência (${INSTITUICOES.reserva_emergencia.nome})</div>...via ${INSTITUICOES.reserva_emergencia.processador}</div></div>
+    <div class="card kpi"><div class="lbl">Fundo de emergência (${INSTITUICOES.reserva_emergencia.nome})</div><div class="val pos">${fmt2(trRate)}</div><div class="sub">${v.isAll ? '/mês (média)' : 'neste mês'} via ${INSTITUICOES.reserva_emergencia.processador}</div></div>
     <div class="card kpi"><div class="lbl">Saldo líquido real</div><div class="val ${saldo >= 0 ? 'pos' : 'warncol'}">${saldo >= 0 ? '+' : ''}${fmt(saldo)}</div><div class="sub">${v.isAll ? 'saldo médio mensal real' : 'saldo real deste mês'}</div></div>
   `;
 }
