@@ -70,6 +70,15 @@
   .filterbar .extrapill{font-size:11.5px;color:var(--warn);background:rgba(240,185,77,.12);border:1px solid rgba(240,185,77,.35);border-radius:20px;padding:4px 12px;cursor:default;}
   .loadstate{padding:80px 0;text-align:center;color:var(--sub);font-size:14px;}
   .errstate{padding:40px 0;text-align:center;color:var(--bad);font-size:14px;}
+  .alertbanner{display:flex;align-items:center;gap:10px;background:rgba(240,185,77,.12);border:1px solid rgba(240,185,77,.35);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:13px;color:var(--warn);}
+  .reviewqueue .item{border-bottom:1px solid var(--line);padding:12px 0;}
+  .reviewqueue .item:last-child{border-bottom:none;}
+  .reviewqueue .desc{font-size:13px;margin-bottom:2px;}
+  .reviewqueue .meta{font-size:12px;color:var(--sub);margin-bottom:8px;}
+  .reviewqueue select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12.5px;font-family:inherit;}
+  .reviewqueue button{background:var(--acc);color:var(--panel2);border:none;border-radius:6px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer;margin-left:8px;}
+  .reviewqueue button:hover{opacity:.85;}
+  .reviewqueue button:disabled{opacity:.5;cursor:default;}
   @media(max-width:760px){.g4{grid-template-columns:repeat(2,1fr);}.g3{grid-template-columns:1fr;}.g2{grid-template-columns:1fr;}.flexrow{flex-direction:column;}.donut{margin:0 auto;}}
 </style>
 </head>
@@ -82,6 +91,11 @@
   <div id="errState" class="errstate" style="display:none;"></div>
 
   <div id="dashboard" style="display:none;">
+    <div id="alertBanner" class="alertbanner" style="display:none;"></div>
+    <div id="reviewSection" style="display:none;">
+      <h2><span class="n">↻</span>Por rever</h2>
+      <div class="card reviewqueue" id="reviewQueue"></div>
+    </div>
     <div class="filterbar">
       <label for="monthFilter">Filtrar por mês</label>
       <select id="monthFilter" onchange="render(this.value)"></select>
@@ -152,6 +166,10 @@ let MONTH_LABELS = {};
 let PERIOD_LABEL = '';
 let CURRENT_BALANCE_TODAY = 0;
 let EMERGENCY_FUND_BALANCE = 0;
+let ALERTAS = [];
+let PENDENTES_REVISAO = [];
+// SUBCATS_BY_CATEGORIA[cat] = [{id, nome}] — usado nos dropdowns da fila de revisão
+let SUBCATS_BY_CATEGORIA = {};
 
 const MONTH_NAMES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 function labelForMonth(mk) {
@@ -581,9 +599,70 @@ function render(filter) {
 }
 
 // ---------- Carregamento e arranque ----------
+function renderAlertBanner() {
+  const el = document.getElementById('alertBanner');
+  if (!ALERTAS.length) { el.style.display = 'none'; return; }
+  el.innerHTML = ALERTAS.map(a => `⚠ ${a.mensagem}`).join('<br>');
+  el.style.display = 'flex';
+}
+
+function renderReviewQueue() {
+  const section = document.getElementById('reviewSection');
+  const el = document.getElementById('reviewQueue');
+  if (!PENDENTES_REVISAO.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+
+  el.innerHTML = PENDENTES_REVISAO.map(t => {
+    const catOptions = Object.keys(SUBCATS_BY_CATEGORIA).sort()
+      .map(c => `<option value="${c}" ${c === t.categoriaSugerida ? 'selected' : ''}>${c}</option>`).join('');
+    return `
+      <div class="item" data-id="${t.id}">
+        <div class="desc">${t.descricao}</div>
+        <div class="meta">${t.data} · ${fmt2(Math.abs(t.valor))} ${t.categoriaSugerida && t.categoriaSugerida !== 'Por categorizar' ? '· sugestão: ' + t.categoriaSugerida + ' / ' + t.subcategoriaSugerida : ''}</div>
+        <select class="cat-select" onchange="atualizarSubcatOptions(this)">${catOptions}</select>
+        <select class="subcat-select"></select>
+        <button onclick="confirmarRevisao('${t.id}', this)">Confirmar</button>
+      </div>`;
+  }).join('');
+
+  el.querySelectorAll('.cat-select').forEach(sel => atualizarSubcatOptions(sel, true));
+}
+
+function atualizarSubcatOptions(catSelect, manterSugestao) {
+  const item = catSelect.closest('.item');
+  const subSelect = item.querySelector('.subcat-select');
+  const tId = item.getAttribute('data-id');
+  const t = PENDENTES_REVISAO.find(p => p.id === tId);
+  const subs = SUBCATS_BY_CATEGORIA[catSelect.value] || [];
+  subSelect.innerHTML = subs.map(s =>
+    `<option value="${s.id}" ${manterSugestao && s.nome === t.subcategoriaSugerida ? 'selected' : ''}>${s.nome}</option>`
+  ).join('');
+}
+
+async function confirmarRevisao(id, btn) {
+  btn.disabled = true;
+  btn.textContent = 'A gravar…';
+  const item = btn.closest('.item');
+  const subcategoriaId = item.querySelector('.subcat-select').value;
+  try {
+    const res = await fetch(SUPABASE_URL + '/functions/v1/rever-transacao', {
+      method: 'POST',
+      headers: { ...SB_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, subcategoria_id: subcategoriaId }),
+    });
+    if (!res.ok) throw new Error('Falha ao gravar (HTTP ' + res.status + ')');
+    await init();
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Tentar novamente';
+    alert('Não foi possível gravar: ' + err.message);
+  }
+}
 async function init() {
   try {
-    const [transacoes, entradas, poupanca, parametros, contas, categorias, subcategorias, instituicoes, tecnicas] = await Promise.all([
+    const [transacoes, entradas, poupanca, parametros, contas, categorias, subcategorias, instituicoes, tecnicas, alertas] = await Promise.all([
+      sbFetch('alertas_sistema', 'select=*&ativo=eq.true'),
+      ALERTAS = alertas;
       sbFetch('transacoes', 'select=*,subcategorias(nome,categoria)'),
       sbFetch('entradas'),
       sbFetch('poupanca'),
@@ -612,6 +691,8 @@ async function init() {
       SUBCAT_KIND[s.categoria] = SUBCAT_KIND[s.categoria] || {};
       SUBCAT_KIND[s.categoria][s.nome] = s.tipo;
       SUBCAT_FLAGS[s.categoria] = SUBCAT_FLAGS[s.categoria] || {};
+      SUBCATS_BY_CATEGORIA[s.categoria] = SUBCATS_BY_CATEGORIA[s.categoria] || [];
+      SUBCATS_BY_CATEGORIA[s.categoria].push({ id: s.id, nome: s.nome });
       SUBCAT_FLAGS[s.categoria][s.nome] = {
         fuga_dinheiro: !!s.fuga_dinheiro,
         renegociavel: !!s.renegociavel,
@@ -649,6 +730,9 @@ async function init() {
       m.expenses[cat] = m.expenses[cat] || {};
       m.expenses[cat][sub] = (m.expenses[cat][sub] || 0) + val;
     });
+    PENDENTES_REVISAO = [];
+      if (t.revisto === false) {
+        PENDENTES_REVISAO.push({ id: t.id, descricao: t.descricao, valor: val, data: t.data, categoriaSugerida: t.categoria, subcategoriaSugerida: t.subcategoria });
 
     MONTH_ORDER = Object.keys(MONTHLY).sort();
     COMPLETE_MONTHS = MONTH_ORDER.length > 1 ? MONTH_ORDER.slice(0, -1) : MONTH_ORDER;
@@ -665,6 +749,8 @@ async function init() {
 
     renderFilterOptions();
     render('all');
+    renderAlertBanner();
+    renderReviewQueue();
 
     document.getElementById('loadState').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
