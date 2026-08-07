@@ -74,7 +74,8 @@
   .reviewqueue .item{border-bottom:1px solid var(--line);padding:12px 0;}
   .reviewqueue .item:last-child{border-bottom:none;}
   .reviewqueue .desc{font-size:13px;margin-bottom:2px;}
-  .reviewqueue .meta{font-size:12px;color:var(--sub);margin-bottom:8px;}
+  .reviewqueue .meta{font-size:12px;color:var(--sub);margin-bottom:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .reviewqueue .controls{display:flex;align-items:center;gap:8px;margin-top:4px;}
   .reviewqueue select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12.5px;font-family:inherit;}
   .reviewqueue button{background:var(--acc);color:var(--panel2);border:none;border-radius:6px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer;margin-left:8px;}
   .reviewqueue button:hover{opacity:.85;}
@@ -94,7 +95,7 @@
     <div id="alertBanner" class="alertbanner" style="display:none;"></div>
 
     <div id="reviewSection" style="display:none;">
-      <h2><span class="n">↻</span>Por rever</h2>
+      <h2><span class="n">↻</span>Por rever <span id="reviewCount" class="mini"></span></h2>
       <div class="card reviewqueue" id="reviewQueue"></div>
     </div>
 
@@ -616,16 +617,22 @@ function renderReviewQueue() {
   el.innerHTML = PENDENTES_REVISAO.map(t => {
     const catOptions = Object.keys(SUBCATS_BY_CATEGORIA).sort()
       .map(c => `<option value="${c}" ${c === t.categoriaSugerida ? 'selected' : ''}>${c}</option>`).join('');
+    const temSugestao = t.categoriaSugerida && t.categoriaSugerida !== 'Por categorizar';
     return `
       <div class="item" data-id="${t.id}">
         <div class="desc">${t.descricao}</div>
-        <div class="meta">${t.data} · ${fmt2(Math.abs(t.valor))} ${t.categoriaSugerida && t.categoriaSugerida !== 'Por categorizar' ? '· sugestão: ' + t.categoriaSugerida + ' / ' + t.subcategoriaSugerida : ''}</div>
+        <div class="meta">
+        <span>${t.data} · ${fmt2(Math.abs(t.valor))}</span>
+            ${temSugestao ? `<span>· sugestão:</span><span class="dot" style="background:${CATEGORY_COLORS[t.categoriaSugerida] || '#666'}"></span><span>${t.categoriaSugerida} / ${t.subcategoriaSugerida}</span>` : ''}
+        </div>
+        <div class="controls">
         <select class="cat-select" onchange="atualizarSubcatOptions(this)">${catOptions}</select>
         <select class="subcat-select"></select>
         <button onclick="confirmarRevisao('${t.id}', this)">Confirmar</button>
+      </div>
       </div>`;
   }).join('');
-
+  document.getElementById('reviewCount').textContent = `(${PENDENTES_REVISAO.length})`;
   el.querySelectorAll('.cat-select').forEach(sel => atualizarSubcatOptions(sel, true));
 }
 
