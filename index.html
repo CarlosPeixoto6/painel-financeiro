@@ -121,6 +121,7 @@
       </div>
       <div class="grid g3" id="secIncomeStability" style="margin-top:16px;"></div>
       <div class="note" id="incomeRiskNote"></div>
+      <div class="note" id="incomeExcludedNote"></div>
     </div>
 
     <h2><span class="n">3</span>Para onde vai cada euro</h2>
@@ -187,6 +188,8 @@ let ALERTAS = [];
 let PENDENTES_REVISAO = [];
 // SUBCATS_BY_CATEGORIA[cat] = [{id, nome}] — usado nos dropdowns da fila de revisão
 let SUBCATS_BY_CATEGORIA = {};
+// SUBCATS_BY_CATEGORIA_ENTRADA[cat] = [{id, nome}] — mesma ideia, para entradas
+let SUBCATS_BY_CATEGORIA_ENTRADA = {};
 
 const MONTH_NAMES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 function labelForMonth(mk) {
@@ -228,7 +231,7 @@ function fmt2(n) {
 }
 function pct(n) { return (Math.round(n * 10) / 10).toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'; }
 
-function emptyAgg() { return { income_salary: 0, income_other: 0, trade_republic: 0, expenses: {}, income_detail: {}, extraordinary: [], monthsCount: 0 }; }
+function emptyAgg() { return { income_salary: 0, income_other: 0, trade_republic: 0, expenses: {}, income_detail: {}, extraordinary: [], income_extraordinary: [], monthsCount: 0 }; }
 function addMonth(agg, mk) {
   const m = MONTHLY[mk];
   if (!m) return;
@@ -236,6 +239,7 @@ function addMonth(agg, mk) {
   agg.income_other += m.income_other;
   agg.trade_republic += m.trade_republic;
   agg.extraordinary = agg.extraordinary.concat(m.extraordinary);
+  agg.income_extraordinary = agg.income_extraordinary.concat(m.income_extraordinary || []);
   for (const [cat, subs] of Object.entries(m.expenses)) {
     agg.expenses[cat] = agg.expenses[cat] || {};
     for (const [sub, amt] of Object.entries(subs)) agg.expenses[cat][sub] = (agg.expenses[cat][sub] || 0) + amt;
@@ -378,6 +382,7 @@ function computeView(filter) {
     avgIncome, avgExpenses, avgSaldo, avgTR, avgSalary, avgOther,
     catTotals, catPct,
     incomeCatTotals, incomeCatPct, incomeRisk, incomeRiskPct,
+    incomeExtraordinary: agg.income_extraordinary,
     fixedEssential, avgFixedEssential, variable, avgVariable,
     topDiscretionary, valorHora, valorHoraBase, valorHoraIsFallback,
     extraordinary: agg.extraordinary,
@@ -509,6 +514,16 @@ function renderIncomeStabilityAndRisk(v) {
     note.innerHTML = `<span class="badge warn">ATENÇÃO</span> ${pct(v.incomeRiskPct)} das entradas ${v.isAll ? 'do período' : 'deste mês'} vêm de ganhos de apostas (${fmt(v.incomeRisk)}).`;
   } else {
     note.innerHTML = '';
+  }
+
+  const excludedNote = document.getElementById('incomeExcludedNote');
+  const excluded = v.incomeExtraordinary;
+  if (excluded.length) {
+    const total = excluded.reduce((a, it) => a + it.amount, 0);
+    excludedNote.textContent = `↻ ${excluded.length} transferência${excluded.length > 1 ? 's' : ''} interna${excluded.length > 1 ? 's' : ''} excluída${excluded.length > 1 ? 's' : ''} das entradas (${fmt(total)}) — dinheiro movido entre as tuas próprias contas.`;
+    excludedNote.title = excluded.map(it => `${it.date} — ${it.desc}: ${fmt2(it.amount)}`).join('\n');
+  } else {
+    excludedNote.textContent = '';
   }
 }
 
@@ -732,15 +747,18 @@ function renderReviewQueue() {
   section.style.display = 'block';
 
   el.innerHTML = PENDENTES_REVISAO.map(t => {
-    const catOptions = Object.keys(SUBCATS_BY_CATEGORIA).sort()
+    const isEntrada = t.origem === 'entradas';
+    const catMap = isEntrada ? SUBCATS_BY_CATEGORIA_ENTRADA : SUBCATS_BY_CATEGORIA;
+    const colorMap = isEntrada ? INCOME_CATEGORY_COLORS : CATEGORY_COLORS;
+    const catOptions = Object.keys(catMap).sort()
       .map(c => `<option value="${c}" ${c === t.categoriaSugerida ? 'selected' : ''}>${c}</option>`).join('');
     const temSugestao = t.categoriaSugerida && t.categoriaSugerida !== 'Por categorizar';
     return `
-      <div class="item" data-id="${t.id}">
-        <div class="desc">${t.descricao}</div>
+      <div class="item" data-id="${t.id}" data-origem="${t.origem}">
+        <div class="desc">${isEntrada ? '↓ ' : ''}${t.descricao}</div>
         <div class="meta">
           <span>${t.data} · ${fmt2(Math.abs(t.valor))}</span>
-          ${temSugestao ? `<span>· sugestão:</span><span class="dot" style="background:${CATEGORY_COLORS[t.categoriaSugerida] || '#666'}"></span><span>${t.categoriaSugerida} / ${t.subcategoriaSugerida}</span>` : ''}
+          ${temSugestao ? `<span>· sugestão:</span><span class="dot" style="background:${colorMap[t.categoriaSugerida] || '#666'}"></span><span>${t.categoriaSugerida} / ${t.subcategoriaSugerida}</span>` : ''}
         </div>
         <div class="controls">
           <select class="cat-select" onchange="atualizarSubcatOptions(this)">${catOptions}</select>
@@ -758,8 +776,10 @@ function atualizarSubcatOptions(catSelect, manterSugestao) {
   const item = catSelect.closest('.item');
   const subSelect = item.querySelector('.subcat-select');
   const tId = item.getAttribute('data-id');
-  const t = PENDENTES_REVISAO.find(p => p.id === tId);
-  const subs = SUBCATS_BY_CATEGORIA[catSelect.value] || [];
+  const origem = item.getAttribute('data-origem');
+  const t = PENDENTES_REVISAO.find(p => p.id === tId && p.origem === origem);
+  const catMap = origem === 'entradas' ? SUBCATS_BY_CATEGORIA_ENTRADA : SUBCATS_BY_CATEGORIA;
+  const subs = catMap[catSelect.value] || [];
   subSelect.innerHTML = subs.map(s =>
     `<option value="${s.id}" ${manterSugestao && s.nome === t.subcategoriaSugerida ? 'selected' : ''}>${s.nome}</option>`
   ).join('');
@@ -769,9 +789,11 @@ async function confirmarRevisao(id, btn) {
   btn.disabled = true;
   btn.textContent = 'A gravar…';
   const item = btn.closest('.item');
+  const origem = item.getAttribute('data-origem');
   const subcategoriaId = item.querySelector('.subcat-select').value;
+  const funcao = origem === 'entradas' ? 'rever-entrada' : 'rever-transacao';
   try {
-    const res = await fetch(SUPABASE_URL + '/functions/v1/rever-transacao', {
+    const res = await fetch(SUPABASE_URL + '/functions/v1/' + funcao, {
       method: 'POST',
       headers: { ...SB_HEADERS, 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, subcategoria_id: subcategoriaId }),
@@ -801,7 +823,7 @@ function renderSyncPill(transacoes) {
 // ---------- Carregamento e arranque ----------
 async function init() {
   try {
-    const [transacoes, entradas, poupanca, parametros, contas, categorias, subcategorias, categoriasEntrada, instituicoes, tecnicas, alertas] = await Promise.all([
+    const [transacoes, entradas, poupanca, parametros, contas, categorias, subcategorias, categoriasEntrada, subcategoriasEntrada, instituicoes, tecnicas, alertas] = await Promise.all([
       sbFetch('transacoes', 'select=*,subcategorias(nome,categoria)'),
       sbFetch('entradas', 'select=*,subcategorias_entrada(nome,categoria)'),
       sbFetch('poupanca'),
@@ -810,6 +832,7 @@ async function init() {
       sbFetch('categorias', 'select=*&order=ordem'),
       sbFetch('subcategorias', 'select=*&order=ordem'),
       sbFetch('categorias_entrada', 'select=*&order=ordem'),
+      sbFetch('subcategorias_entrada', 'select=*&order=ordem'),
       sbFetch('instituicoes_financeiras', 'select=*&order=ordem'),
       sbFetch('tecnicas_anti_impulso', 'select=*&order=ordem'),
       sbFetch('alertas_sistema', 'select=*&ativo=eq.true'),
@@ -835,6 +858,10 @@ async function init() {
       INCOME_CATEGORY_COLORS[c.nome] = c.cor;
       INCOME_CATEGORY_FLAGS[c.nome] = { flag_risco: !!c.flag_risco };
     });
+    subcategoriasEntrada.forEach(s => {
+      SUBCATS_BY_CATEGORIA_ENTRADA[s.categoria] = SUBCATS_BY_CATEGORIA_ENTRADA[s.categoria] || [];
+      SUBCATS_BY_CATEGORIA_ENTRADA[s.categoria].push({ id: s.id, nome: s.nome });
+    });
     subcategorias.forEach(s => {
       SUBCATS_BY_CATEGORIA[s.categoria] = SUBCATS_BY_CATEGORIA[s.categoria] || [];
       SUBCATS_BY_CATEGORIA[s.categoria].push({ id: s.id, nome: s.nome });
@@ -852,12 +879,21 @@ async function init() {
 
     MONTHLY = {};
     function ensure(mk) {
-      if (!MONTHLY[mk]) MONTHLY[mk] = { income_salary: 0, income_other: 0, trade_republic: 0, expenses: {}, income_detail: {}, extraordinary: [] };
+      if (!MONTHLY[mk]) MONTHLY[mk] = { income_salary: 0, income_other: 0, trade_republic: 0, expenses: {}, income_detail: {}, extraordinary: [], income_extraordinary: [] };
       return MONTHLY[mk];
     }
     entradas.forEach(e => {
       const m = ensure(e.mes_referencia);
       const val = parseFloat(e.valor);
+      if (e.extraordinario) {
+        m.income_extraordinary.push({ desc: e.descricao, amount: val, date: e.data });
+        return;
+      }
+      if (e.revisto === false) {
+        const catSug = e.subcategorias_entrada ? e.subcategorias_entrada.categoria : 'Por categorizar';
+        const subSug = e.subcategorias_entrada ? e.subcategorias_entrada.nome : 'Por categorizar';
+        PENDENTES_REVISAO.push({ id: e.id, descricao: e.descricao, valor: val, data: e.data, categoriaSugerida: catSug, subcategoriaSugerida: subSug, origem: 'entradas' });
+      }
       if (e.tipo === 'salario') m.income_salary += val; else m.income_other += val;
       // Fonte de verdade: join via subcategoria_id (FK). Fallback para "Outras entradas/Não categorizado"
       // para registos antigos sem subcategoria_id preenchido.
@@ -879,7 +915,7 @@ async function init() {
         return;
       }
       if (t.revisto === false) {
-        PENDENTES_REVISAO.push({ id: t.id, descricao: t.descricao, valor: val, data: t.data, categoriaSugerida: t.categoria, subcategoriaSugerida: t.subcategoria });
+        PENDENTES_REVISAO.push({ id: t.id, descricao: t.descricao, valor: val, data: t.data, categoriaSugerida: t.categoria, subcategoriaSugerida: t.subcategoria, origem: 'transacoes' });
       }
       // Fonte de verdade: join via subcategoria_id (FK). Fallback ao texto solto
       // só por segurança, para transações antigas sem subcategoria_id preenchido.
