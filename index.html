@@ -882,6 +882,7 @@ async function init() {
       if (!MONTHLY[mk]) MONTHLY[mk] = { income_salary: 0, income_other: 0, trade_republic: 0, expenses: {}, income_detail: {}, extraordinary: [], income_extraordinary: [] };
       return MONTHLY[mk];
     }
+    PENDENTES_REVISAO = [];
     entradas.forEach(e => {
       const m = ensure(e.mes_referencia);
       const val = parseFloat(e.valor);
@@ -906,7 +907,6 @@ async function init() {
       const m = ensure(p.mes_referencia);
       m.trade_republic += parseFloat(p.valor);
     });
-    PENDENTES_REVISAO = [];
     transacoes.forEach(t => {
       const m = ensure(t.mes_referencia);
       const val = parseFloat(t.valor);
