@@ -113,7 +113,17 @@
     <h2><span class="n">1</span><span id="h2-1">Visão geral</span></h2>
     <div class="grid g4" id="sec1"></div>
 
-    <h2><span class="n">2</span>Para onde vai cada euro</h2>
+    <h2><span class="n">2</span>De onde vem cada euro</h2>
+    <div class="card">
+      <div class="flexrow">
+        <div class="donut" id="donutIncome"></div>
+        <ul class="legend" id="legendIncome"></ul>
+      </div>
+      <div class="grid g3" id="secIncomeStability" style="margin-top:16px;"></div>
+      <div class="note" id="incomeRiskNote"></div>
+    </div>
+
+    <h2><span class="n">3</span>Para onde vai cada euro</h2>
     <div class="card">
       <div class="flexrow">
         <div class="donut" id="donut"></div>
@@ -121,31 +131,31 @@
       </div>
     </div>
 
-    <h2><span class="n">3</span>Taxa de poupança</h2>
+    <h2><span class="n">4</span>Taxa de poupança</h2>
     <div class="card">
       <div class="split" id="sec3"></div>
     </div>
 
-    <h2><span class="n">4</span>Fugas de dinheiro</h2>
+    <h2><span class="n">5</span>Fugas de dinheiro</h2>
     <div class="card">
       <table id="sec4"></table>
     </div>
 
-    <h2><span class="n">5</span>Quanto vale a tua hora</h2>
+    <h2><span class="n">6</span>Quanto vale a tua hora</h2>
     <div class="grid g4" id="sec5"></div>
 
-    <h2><span class="n">6</span>Reserva de emergência</h2>
+    <h2><span class="n">7</span>Reserva de emergência</h2>
     <div class="card" id="sec6"></div>
 
-    <h2><span class="n">7</span>Paga-te primeiro</h2>
+    <h2><span class="n">8</span>Paga-te primeiro</h2>
     <div class="card" id="sec7"></div>
 
-    <h2><span class="n">8</span>Otimizar</h2>
+    <h2><span class="n">9</span>Otimizar</h2>
     <div class="card">
       <table id="sec8"></table>
     </div>
 
-    <h2><span class="n">9</span>Projeção + anti-impulsividade</h2>
+    <h2><span class="n">10</span>Projeção + anti-impulsividade</h2>
     <div class="grid g2" id="sec9"></div>
 
     <div class="card" style="margin-top:12px;" id="sec9b"></div>
@@ -193,6 +203,11 @@ let SUBCAT_KIND = {};
 let SUBCAT_FLAGS = {};
 // CATEGORY_FLAGS[cat] = { flag_impulso }
 let CATEGORY_FLAGS = {};
+// Preenchidos a partir de "categorias_entrada" (Supabase) no init().
+let INCOME_CATEGORY_COLORS = {};
+let INCOME_CATEGORY_ORDER = [];
+// INCOME_CATEGORY_FLAGS[cat] = { flag_risco }
+let INCOME_CATEGORY_FLAGS = {};
 // Preenchidos a partir de "instituicoes_financeiras" e "tecnicas_anti_impulso" (Supabase) no init().
 // INSTITUICOES[tipo] = { nome, processador, chave }
 let INSTITUICOES = {};
@@ -213,7 +228,7 @@ function fmt2(n) {
 }
 function pct(n) { return (Math.round(n * 10) / 10).toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'; }
 
-function emptyAgg() { return { income_salary: 0, income_other: 0, trade_republic: 0, expenses: {}, extraordinary: [], monthsCount: 0 }; }
+function emptyAgg() { return { income_salary: 0, income_other: 0, trade_republic: 0, expenses: {}, income_detail: {}, extraordinary: [], monthsCount: 0 }; }
 function addMonth(agg, mk) {
   const m = MONTHLY[mk];
   if (!m) return;
@@ -224,6 +239,10 @@ function addMonth(agg, mk) {
   for (const [cat, subs] of Object.entries(m.expenses)) {
     agg.expenses[cat] = agg.expenses[cat] || {};
     for (const [sub, amt] of Object.entries(subs)) agg.expenses[cat][sub] = (agg.expenses[cat][sub] || 0) + amt;
+  }
+  for (const [cat, subs] of Object.entries(m.income_detail || {})) {
+    agg.income_detail[cat] = agg.income_detail[cat] || {};
+    for (const [sub, amt] of Object.entries(subs)) agg.income_detail[cat][sub] = (agg.income_detail[cat][sub] || 0) + amt;
   }
   agg.monthsCount += 1;
 }
@@ -284,6 +303,25 @@ function discretionarySubcats(agg) {
   list.sort((a, b) => b.amt - a.amt);
   return list;
 }
+function incomeCategoryTotals(agg) {
+  const out = {};
+  for (const [cat, subs] of Object.entries(agg.income_detail)) out[cat] = Object.values(subs).reduce((a, b) => a + b, 0);
+  return out;
+}
+function incomeRiskTotal(incomeCatTotals) {
+  let t = 0;
+  for (const [cat, total] of Object.entries(incomeCatTotals)) if (INCOME_CATEGORY_FLAGS[cat] && INCOME_CATEGORY_FLAGS[cat].flag_risco) t += (total || 0);
+  return t;
+}
+// Estabilidade do salário: calculada sempre sobre COMPLETE_MONTHS (independente do filtro de mês selecionado)
+function computeIncomeStability() {
+  const values = COMPLETE_MONTHS.map(mk => (MONTHLY[mk] ? MONTHLY[mk].income_salary : 0)).filter(v => v > 0);
+  if (!values.length) return { min: 0, max: 0, avg: 0, count: 0 };
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  return { min, max, avg, count: values.length };
+}
 
 function computeView(filter) {
   const isAll = filter === 'all';
@@ -311,6 +349,12 @@ function computeView(filter) {
   const catPct = {};
   for (const c of CATEGORY_ORDER) catPct[c] = expenses > 0 ? ((catTotals[c] || 0) / expenses * 100) : 0;
 
+  const incomeCatTotals = incomeCategoryTotals(agg);
+  const incomeCatPct = {};
+  for (const c of INCOME_CATEGORY_ORDER) incomeCatPct[c] = income > 0 ? ((incomeCatTotals[c] || 0) / income * 100) : 0;
+  const incomeRisk = incomeRiskTotal(incomeCatTotals);
+  const incomeRiskPct = income > 0 ? (incomeRisk / income * 100) : 0;
+
   const fixedEssential = fixedEssentialTotal(agg);
   const avgFixedEssential = fixedEssentialTotal(avgAgg) / avgDivisor;
   const variable = expenses - fixedEssential;
@@ -333,10 +377,12 @@ function computeView(filter) {
     income, expenses, saldo, trade_republic: agg.trade_republic,
     avgIncome, avgExpenses, avgSaldo, avgTR, avgSalary, avgOther,
     catTotals, catPct,
+    incomeCatTotals, incomeCatPct, incomeRisk, incomeRiskPct,
     fixedEssential, avgFixedEssential, variable, avgVariable,
     topDiscretionary, valorHora, valorHoraBase, valorHoraIsFallback,
     extraordinary: agg.extraordinary,
     expensesDetail: agg.expenses,
+    incomeDetail: agg.income_detail,
     agg,
   };
 }
@@ -411,6 +457,59 @@ function renderDonutAndLegend(v) {
       </details>`;
     legend.appendChild(li);
   });
+}
+
+function renderDonutIncome(v) {
+  const divisor = v.isAll ? v.avgDivisor : 1;
+
+  const allCats = INCOME_CATEGORY_ORDER.slice();
+  Object.keys(v.incomeCatTotals).forEach(c => { if (!allCats.includes(c)) allCats.push(c); });
+
+  const displayTotals = {};
+  allCats.forEach(c => { displayTotals[c] = (v.incomeCatTotals[c] || 0) / divisor; });
+
+  const cats = allCats.filter(c => (v.incomeCatTotals[c] || 0) > 0);
+  let acc = 0;
+  const stops = [];
+  cats.forEach(c => {
+    const start = acc;
+    acc += (v.incomeCatPct[c] || (v.income > 0 ? (v.incomeCatTotals[c] || 0) / v.income * 100 : 0));
+    stops.push(`${INCOME_CATEGORY_COLORS[c] || '#5c6773'} ${start.toFixed(2)}% ${acc.toFixed(2)}%`);
+  });
+  document.getElementById('donutIncome').style.background = stops.length ? `conic-gradient(${stops.join(',')})` : 'var(--panel2)';
+
+  const legend = document.getElementById('legendIncome');
+  legend.innerHTML = '';
+  cats.slice().sort((a, b) => (v.incomeCatTotals[b] || 0) - (v.incomeCatTotals[a] || 0)).forEach(c => {
+    const subs = v.incomeDetail[c] || {};
+    const subItems = Object.entries(subs).sort((a, b) => b[1] - a[1])
+      .map(([sub, amt]) => `<li><span>${sub}</span><b>${fmt(amt / divisor)}</b></li>`).join('');
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <details>
+        <summary><span class="dot" style="background:${INCOME_CATEGORY_COLORS[c] || '#666'}"></span><span class="name">${c}</span><span class="amt">${fmt(displayTotals[c])}${v.isAll ? '/mês' : ''}</span><span class="pct">${pct(v.incomeCatPct[c] || (v.income > 0 ? (v.incomeCatTotals[c] || 0) / v.income * 100 : 0))}</span><span class="chev">&#8250;</span></summary>
+        <ul class="subitems">${subItems}</ul>
+      </details>`;
+    legend.appendChild(li);
+  });
+}
+
+function renderIncomeStabilityAndRisk(v) {
+  const s = computeIncomeStability();
+  document.getElementById('secIncomeStability').innerHTML = `
+    <div class="card kpi" style="background:var(--panel2)"><div class="lbl">Salário mínimo</div><div class="val" style="font-size:19px">${fmt(s.min)}</div><div class="sub">no período completo</div></div>
+    <div class="card kpi" style="background:var(--panel2)"><div class="lbl">Salário médio</div><div class="val" style="font-size:19px">${fmt(s.avg)}</div><div class="sub">${s.count} meses com salário</div></div>
+    <div class="card kpi" style="background:var(--panel2)"><div class="lbl">Salário máximo</div><div class="val" style="font-size:19px">${fmt(s.max)}</div><div class="sub">no período completo</div></div>
+  `;
+
+  const note = document.getElementById('incomeRiskNote');
+  if (v.incomeRiskPct > 8) {
+    note.innerHTML = `<span class="badge bad">RISCO</span> ${pct(v.incomeRiskPct)} das entradas ${v.isAll ? 'do período' : 'deste mês'} vêm de ganhos de apostas (${fmt(v.incomeRisk)}) — uma fonte de rendimento instável, não contar com ela.`;
+  } else if (v.incomeRiskPct > 3) {
+    note.innerHTML = `<span class="badge warn">ATENÇÃO</span> ${pct(v.incomeRiskPct)} das entradas ${v.isAll ? 'do período' : 'deste mês'} vêm de ganhos de apostas (${fmt(v.incomeRisk)}).`;
+  } else {
+    note.innerHTML = '';
+  }
 }
 
 function renderSection3(v) {
@@ -607,6 +706,8 @@ function render(filter) {
   document.getElementById('scopePill').textContent = v.label;
   renderExtraPill(v);
   renderSection1(v);
+  renderDonutIncome(v);
+  renderIncomeStabilityAndRisk(v);
   renderDonutAndLegend(v);
   renderSection3(v);
   renderSection4(v);
@@ -700,14 +801,15 @@ function renderSyncPill(transacoes) {
 // ---------- Carregamento e arranque ----------
 async function init() {
   try {
-    const [transacoes, entradas, poupanca, parametros, contas, categorias, subcategorias, instituicoes, tecnicas, alertas] = await Promise.all([
+    const [transacoes, entradas, poupanca, parametros, contas, categorias, subcategorias, categoriasEntrada, instituicoes, tecnicas, alertas] = await Promise.all([
       sbFetch('transacoes', 'select=*,subcategorias(nome,categoria)'),
-      sbFetch('entradas'),
+      sbFetch('entradas', 'select=*,subcategorias_entrada(nome,categoria)'),
       sbFetch('poupanca'),
       sbFetch('parametros'),
       sbFetch('contas_bancarias'),
       sbFetch('categorias', 'select=*&order=ordem'),
       sbFetch('subcategorias', 'select=*&order=ordem'),
+      sbFetch('categorias_entrada', 'select=*&order=ordem'),
       sbFetch('instituicoes_financeiras', 'select=*&order=ordem'),
       sbFetch('tecnicas_anti_impulso', 'select=*&order=ordem'),
       sbFetch('alertas_sistema', 'select=*&ativo=eq.true'),
@@ -721,11 +823,17 @@ async function init() {
 
     instituicoes.forEach(i => { INSTITUICOES[i.tipo] = { nome: i.nome, processador: i.processador, chave: i.chave }; });
     TECNICAS = tecnicas;
-    
+
     CATEGORY_ORDER = categorias.map(c => c.nome);
     categorias.forEach(c => {
     CATEGORY_COLORS[c.nome] = c.cor;
     CATEGORY_FLAGS[c.nome] = { flag_impulso: !!c.flag_impulso };
+    });
+
+    INCOME_CATEGORY_ORDER = categoriasEntrada.map(c => c.nome);
+    categoriasEntrada.forEach(c => {
+      INCOME_CATEGORY_COLORS[c.nome] = c.cor;
+      INCOME_CATEGORY_FLAGS[c.nome] = { flag_risco: !!c.flag_risco };
     });
     subcategorias.forEach(s => {
       SUBCATS_BY_CATEGORIA[s.categoria] = SUBCATS_BY_CATEGORIA[s.categoria] || [];
@@ -744,13 +852,19 @@ async function init() {
 
     MONTHLY = {};
     function ensure(mk) {
-      if (!MONTHLY[mk]) MONTHLY[mk] = { income_salary: 0, income_other: 0, trade_republic: 0, expenses: {}, extraordinary: [] };
+      if (!MONTHLY[mk]) MONTHLY[mk] = { income_salary: 0, income_other: 0, trade_republic: 0, expenses: {}, income_detail: {}, extraordinary: [] };
       return MONTHLY[mk];
     }
     entradas.forEach(e => {
       const m = ensure(e.mes_referencia);
       const val = parseFloat(e.valor);
       if (e.tipo === 'salario') m.income_salary += val; else m.income_other += val;
+      // Fonte de verdade: join via subcategoria_id (FK). Fallback para "Outras entradas/Não categorizado"
+      // para registos antigos sem subcategoria_id preenchido.
+      const cat = e.subcategorias_entrada ? e.subcategorias_entrada.categoria : (e.tipo === 'salario' ? 'Salário' : 'Outras entradas');
+      const sub = e.subcategorias_entrada ? e.subcategorias_entrada.nome : 'Não categorizado';
+      m.income_detail[cat] = m.income_detail[cat] || {};
+      m.income_detail[cat][sub] = (m.income_detail[cat][sub] || 0) + val;
     });
     poupanca.forEach(p => {
       const m = ensure(p.mes_referencia);
