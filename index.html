@@ -858,6 +858,8 @@ async function init() {
       INCOME_CATEGORY_COLORS[c.nome] = c.cor;
       INCOME_CATEGORY_FLAGS[c.nome] = { flag_risco: !!c.flag_risco };
     });
+    SUBCATS_BY_CATEGORIA = {};
+    SUBCATS_BY_CATEGORIA_ENTRADA = {};
     subcategoriasEntrada.forEach(s => {
       SUBCATS_BY_CATEGORIA_ENTRADA[s.categoria] = SUBCATS_BY_CATEGORIA_ENTRADA[s.categoria] || [];
       SUBCATS_BY_CATEGORIA_ENTRADA[s.categoria].push({ id: s.id, nome: s.nome });
