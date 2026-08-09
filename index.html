@@ -171,9 +171,21 @@ const REST = SUPABASE_URL + '/rest/v1/';
 const SB_HEADERS = { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY };
 
 async function sbFetch(table, query) {
-  const res = await fetch(REST + table + '?' + (query || 'select=*'), { headers: SB_HEADERS });
-  if (!res.ok) throw new Error(`Falha ao carregar "${table}" (HTTP ${res.status})`);
-  return res.json();
+  const PAGE = 1000;
+  const base = query || 'select=*';
+  const orderParam = base.includes('order=') ? '' : '&order=id.asc';
+  let all = [];
+  let offset = 0;
+  while (true) {
+    const url = `${REST}${table}?${base}${orderParam}&limit=${PAGE}&offset=${offset}`;
+    const res = await fetch(url, { headers: SB_HEADERS });
+    if (!res.ok) throw new Error(`Falha ao carregar "${table}" (HTTP ${res.status})`);
+    const page = await res.json();
+    all = all.concat(page);
+    if (page.length < PAGE) break;
+    offset += PAGE;
+  }
+  return all;
 }
 
 // ---------- Estado global (preenchido após o fetch) ----------
