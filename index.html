@@ -125,7 +125,10 @@
       <div class="note" id="incomeExcludedNote"></div>
     </div>
 
-    <h2><span class="n">3</span>Para onde vai cada euro</h2>
+    <h2><span class="n">3</span>Investimentos</h2>
+    <div class="grid g4" id="secInvestimentos"></div>
+
+    <h2><span class="n">4</span>Para onde vai cada euro</h2>
     <div class="card">
       <div class="flexrow">
         <div class="donut" id="donut"></div>
@@ -133,37 +136,34 @@
       </div>
     </div>
 
-    <h2><span class="n">4</span>Taxa de poupança</h2>
+    <h2><span class="n">5</span>Taxa de poupança</h2>
     <div class="card">
       <div class="split" id="sec3"></div>
     </div>
 
-    <h2><span class="n">5</span>Fugas de dinheiro</h2>
+    <h2><span class="n">6</span>Fugas de dinheiro</h2>
     <div class="card">
       <table id="sec4"></table>
     </div>
 
-    <h2><span class="n">6</span>Quanto vale a tua hora</h2>
+    <h2><span class="n">7</span>Quanto vale a tua hora</h2>
     <div class="grid g4" id="sec5"></div>
 
-    <h2><span class="n">7</span>Reserva de emergência</h2>
+    <h2><span class="n">8</span>Reserva de emergência</h2>
     <div class="card" id="sec6"></div>
 
-    <h2><span class="n">8</span>Paga-te primeiro</h2>
+    <h2><span class="n">9</span>Paga-te primeiro</h2>
     <div class="card" id="sec7"></div>
 
-    <h2><span class="n">9</span>Otimizar</h2>
+    <h2><span class="n">10</span>Otimizar</h2>
     <div class="card">
       <table id="sec8"></table>
     </div>
 
-    <h2><span class="n">10</span>Projeção + anti-impulsividade</h2>
+    <h2><span class="n">11</span>Projeção + anti-impulsividade</h2>
     <div class="grid g2" id="sec9"></div>
 
     <div class="card" style="margin-top:12px;" id="sec9b"></div>
-
-    <h2><span class="n">11</span>Investimentos</h2>
-    <div class="grid g4" id="secInvestimentos"></div>
   </div>
 </div>
 
@@ -608,10 +608,13 @@ function renderSection5(v) {
 function renderSection6(v) {
   const monthlyBase = v.isAll ? v.avgFixedEssential : v.fixedEssential;
   const goal = monthlyBase * 6;
-  const balance = EMERGENCY_FUND_BALANCE;
+  const trPanel = computeTRPanel();
+  const balance = trPanel.balance;
   const progressPct = goal > 0 ? Math.min(100, balance / goal * 100) : 0;
   const falta = Math.max(0, goal - balance);
-  const trRate = v.isAll ? v.avgTR : v.trade_republic;
+  // Ritmo de contribuição: no "todo o período" usa a mesma média do subpainel Trade Republic
+  // (secção 3); num mês específico, usa o valor desse mês.
+  const trRate = v.isAll ? trPanel.avgMonthly : v.trade_republic;
   const monthsToGoal = trRate > 0 ? (falta / trRate) : null;
 
   document.getElementById('sec6').innerHTML = `
@@ -855,6 +858,27 @@ function renderSyncPill(transacoes, entradas) {
   }
 }
 
+// Ícone por instituição (o da própria instituição, quando existe um símbolo reconhecível;
+// caso contrário, um ícone genérico associado ao tema "investimento").
+const INSTITUTION_ICONS = {
+  'Trade Republic': '🛡️',
+  'Interactive Brokers': '📈',
+  'PPR SGF Stoik': '🏛️',
+  'Crypto': '₿',
+};
+const DEFAULT_INSTITUTION_ICON = '💰';
+
+// Cálculo do subpainel da Trade Republic (fundo de emergência) — fonte única, reutilizada
+// tanto no painel de Investimentos como na secção "Reserva de emergência", para nunca divergirem.
+function computeTRPanel() {
+  const divisor = COMPLETE_MONTHS.length || 1;
+  const completeSet = new Set(COMPLETE_MONTHS);
+  const contribPeriodo = ENTRADAS_TR_INTERNAS.filter(d => completeSet.has(d.mes_referencia))
+    .reduce((a, d) => a + parseFloat(d.valor), 0);
+  const avgMonthly = contribPeriodo / divisor;
+  return { balance: EMERGENCY_FUND_BALANCE, avgMonthly };
+}
+
 function renderInvestimentos() {
   const divisor = COMPLETE_MONTHS.length || 1;
   const completeSet = new Set(COMPLETE_MONTHS);
@@ -864,27 +888,29 @@ function renderInvestimentos() {
   const avgIncome = (rendimentoAgg.income_salary + rendimentoAgg.income_other) / divisor;
 
   const panels = INSTITUICOES_LIST.filter(i => i.tipo === 'reserva_emergencia' || i.tipo === 'investimento');
+  const trPanel = computeTRPanel();
 
   const cards = panels.map(inst => {
-    let total, totalLabel, deposits;
+    let total, totalLabel, avgMensal;
     if (inst.tipo === 'reserva_emergencia') {
-      total = EMERGENCY_FUND_BALANCE;
+      total = trPanel.balance;
       totalLabel = 'saldo atual';
-      deposits = ENTRADAS_TR_INTERNAS;
+      avgMensal = trPanel.avgMonthly;
     } else {
-      deposits = POUPANCA_ROWS.filter(p => p.instituicao_id === inst.id)
+      const deposits = POUPANCA_ROWS.filter(p => p.instituicao_id === inst.id)
         .concat(INVESTIMENTOS_ROWS.filter(x => x.instituicao_id === inst.id));
       total = deposits.reduce((a, d) => a + parseFloat(d.valor), 0);
       totalLabel = 'total depositado';
+      const contribPeriodo = deposits.filter(d => completeSet.has(d.mes_referencia))
+        .reduce((a, d) => a + parseFloat(d.valor), 0);
+      avgMensal = contribPeriodo / divisor;
     }
-    const contribPeriodo = deposits.filter(d => completeSet.has(d.mes_referencia))
-      .reduce((a, d) => a + parseFloat(d.valor), 0);
-    const avgMensal = contribPeriodo / divisor;
     const avgPct = avgIncome > 0 ? (avgMensal / avgIncome * 100) : 0;
+    const icon = INSTITUTION_ICONS[inst.nome] || DEFAULT_INSTITUTION_ICON;
     return `
       <div class="card kpi">
-        <div class="lbl">${inst.nome}</div>
-        <div class="val pos">${fmt(total)}</div>
+        <div class="lbl">${icon} ${inst.nome}</div>
+        <div class="val">${fmt(total)}</div>
         <div class="sub">${totalLabel}</div>
         <div class="sub" style="margin-top:6px;">${pct(avgPct)} do rendimento médio/mês</div>
       </div>`;
