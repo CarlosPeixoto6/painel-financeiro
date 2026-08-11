@@ -107,7 +107,8 @@
       <span class="scopepill" id="scopePill"></span>
       <span class="extrapill" id="extraPill" style="display:none;" title=""></span>
       <span class="techpill" id="techPill" style="display:none;" title=""></span>
-      <span class="syncpill" id="syncPill" style="display:none;" title=""></span>
+      <span class="syncpill" id="syncPillDespesas" style="display:none;" title=""></span>
+<span class="syncpill" id="syncPillEntradas" style="display:none;" title=""></span>
     </div>
 
     <h2><span class="n">1</span><span id="h2-1">Visão geral</span></h2>
@@ -818,17 +819,28 @@ async function confirmarRevisao(id, btn) {
   }
 }
 
-function renderSyncPill(transacoes) {
-  const pill = document.getElementById('syncPill');
+function renderSyncPill(transacoes, entradas) {
   const desde = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const recentes = transacoes.filter(t => t.origem === 'auto_open_banking' && t.criado_em && new Date(t.criado_em) > desde);
-  if (!recentes.length) {
-    pill.style.display = 'none';
-    return;
+
+  const despesasPill = document.getElementById('syncPillDespesas');
+  const recentesDespesas = transacoes.filter(t => t.origem === 'auto_open_banking' && t.criado_em && new Date(t.criado_em) > desde);
+  if (!recentesDespesas.length) {
+    despesasPill.style.display = 'none';
+  } else {
+    despesasPill.textContent = `🔄 ${recentesDespesas.length} despesa${recentesDespesas.length > 1 ? 's' : ''} sincronizada${recentesDespesas.length > 1 ? 's' : ''} nas últimas 24h`;
+    despesasPill.title = recentesDespesas.map(t => `${t.data} — ${t.descricao}: ${fmt2(t.valor)}`).join('\n');
+    despesasPill.style.display = 'inline-block';
   }
-  pill.textContent = `🔄 ${recentes.length} transaç${recentes.length > 1 ? 'ões' : 'ão'} sincronizada${recentes.length > 1 ? 's' : ''} nas últimas 24h`;
-  pill.title = recentes.map(t => `${t.data} — ${t.descricao}: ${fmt2(t.valor)}`).join('\n');
-  pill.style.display = 'inline-block';
+
+  const entradasPill = document.getElementById('syncPillEntradas');
+  const recentesEntradas = entradas.filter(e => e.origem === 'auto_open_banking' && e.criado_em && new Date(e.criado_em) > desde);
+  if (!recentesEntradas.length) {
+    entradasPill.style.display = 'none';
+  } else {
+    entradasPill.textContent = `🔄 ${recentesEntradas.length} entrada${recentesEntradas.length > 1 ? 's' : ''} sincronizada${recentesEntradas.length > 1 ? 's' : ''} nas últimas 24h`;
+    entradasPill.title = recentesEntradas.map(e => `${e.data} — ${e.descricao}: ${fmt2(e.valor)}`).join('\n');
+    entradasPill.style.display = 'inline-block';
+  }
 }
 
 // ---------- Carregamento e arranque ----------
@@ -955,7 +967,7 @@ async function init() {
     render('all');
     renderAlertBanner();
     renderReviewQueue();
-    renderSyncPill(transacoes);
+    renderSyncPill(transacoes, entradas);
 
     document.getElementById('loadState').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
