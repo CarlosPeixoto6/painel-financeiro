@@ -161,6 +161,9 @@
     <div class="grid g2" id="sec9"></div>
 
     <div class="card" style="margin-top:12px;" id="sec9b"></div>
+
+    <h2><span class="n">11</span>Investimentos</h2>
+    <div class="grid g4" id="secInvestimentos"></div>
   </div>
 </div>
 
@@ -224,9 +227,18 @@ let INCOME_CATEGORY_ORDER = [];
 // INCOME_CATEGORY_FLAGS[cat] = { flag_risco }
 let INCOME_CATEGORY_FLAGS = {};
 // Preenchidos a partir de "instituicoes_financeiras" e "tecnicas_anti_impulso" (Supabase) no init().
-// INSTITUICOES[tipo] = { nome, processador, chave }
+// INSTITUICOES[tipo] = { nome, processador, chave } — mantido para compatibilidade; com vários
+// registos do mesmo tipo (ex: "investimento"), guarda o primeiro por ordem. Para o painel de
+// Investimentos (secção 11), usar antes INSTITUICOES_LIST (todas as instituições, uma por linha).
 let INSTITUICOES = {};
+let INSTITUICOES_LIST = [];
 let TECNICAS = [];
+// Depósitos/contribuições por instituição de investimento, preenchidos no init().
+let POUPANCA_ROWS = [];
+let INVESTIMENTOS_ROWS = [];
+// Entradas na Trade Republic marcadas como "Transferência interna" (dinheiro que só mudou de conta,
+// não é rendimento novo, mas conta como contribuição para o fundo de emergência).
+let ENTRADAS_TR_INTERNAS = [];
 function kindOf(cat, sub) {
   const rules = SUBCAT_KIND[cat] || {};
   return rules[sub] || rules['*'] || 'discretionary';
@@ -434,7 +446,7 @@ function renderSection1(v) {
   document.getElementById('sec1').innerHTML = `
     <div class="card kpi"><div class="lbl">Entradas</div><div class="val pos">${fmt(entradas)}</div><div class="sub">salário ${fmt(salPart)} + outras ${fmt(otherPart)}</div></div>
     <div class="card kpi"><div class="lbl">Saídas correntes</div><div class="val neg">${fmt(saidas)}</div><div class="sub">fixas+essenciais ${fmt(fixedPart)} + variáveis ${fmt(varPart)}</div></div>
-    <div class="card kpi"><div class="lbl">Fundo de emergência (${INSTITUICOES.reserva_emergencia.nome})</div><div class="val pos">${fmt2(trRate)}</div><div class="sub">${v.isAll ? '/mês (média)' : 'neste mês'} via ${INSTITUICOES.reserva_emergencia.processador}</div></div>
+    <div class="card kpi"><div class="lbl">Fundo de emergência (${INSTITUICOES.reserva_emergencia.nome})</div><div class="val pos">${fmt2(trRate)}</div><div class="sub">${v.isAll ? '/mês (média)' : 'neste mês'}${INSTITUICOES.reserva_emergencia.processador ? ' via ' + INSTITUICOES.reserva_emergencia.processador : ''}</div></div>
     <div class="card kpi"><div class="lbl">Saldo líquido real</div><div class="val ${saldo >= 0 ? 'pos' : 'warncol'}">${saldo >= 0 ? '+' : ''}${fmt(saldo)}</div><div class="sub">${v.isAll ? 'saldo médio mensal real' : 'saldo real deste mês'}</div></div>
   `;
 }
@@ -685,7 +697,7 @@ function renderTecnicas(impulsosPct, hasAltoRisco, plataformasRisco) {
 
   const vars = {
     instituicao_reserva: INSTITUICOES.reserva_emergencia.nome,
-    processador_reserva: INSTITUICOES.reserva_emergencia.processador,
+    processador_reserva: INSTITUICOES.reserva_emergencia.processador || '',
     instituicao_investimento: INSTITUICOES.investimento.nome,
     plataformas_risco: plataformasRisco,
   };
@@ -843,13 +855,52 @@ function renderSyncPill(transacoes, entradas) {
   }
 }
 
+function renderInvestimentos() {
+  const divisor = COMPLETE_MONTHS.length || 1;
+  const completeSet = new Set(COMPLETE_MONTHS);
+
+  const rendimentoAgg = emptyAgg();
+  COMPLETE_MONTHS.forEach(k => addMonth(rendimentoAgg, k));
+  const avgIncome = (rendimentoAgg.income_salary + rendimentoAgg.income_other) / divisor;
+
+  const panels = INSTITUICOES_LIST.filter(i => i.tipo === 'reserva_emergencia' || i.tipo === 'investimento');
+
+  const cards = panels.map(inst => {
+    let total, totalLabel, deposits;
+    if (inst.tipo === 'reserva_emergencia') {
+      total = EMERGENCY_FUND_BALANCE;
+      totalLabel = 'saldo atual';
+      deposits = ENTRADAS_TR_INTERNAS;
+    } else {
+      deposits = POUPANCA_ROWS.filter(p => p.instituicao_id === inst.id)
+        .concat(INVESTIMENTOS_ROWS.filter(x => x.instituicao_id === inst.id));
+      total = deposits.reduce((a, d) => a + parseFloat(d.valor), 0);
+      totalLabel = 'total depositado';
+    }
+    const contribPeriodo = deposits.filter(d => completeSet.has(d.mes_referencia))
+      .reduce((a, d) => a + parseFloat(d.valor), 0);
+    const avgMensal = contribPeriodo / divisor;
+    const avgPct = avgIncome > 0 ? (avgMensal / avgIncome * 100) : 0;
+    return `
+      <div class="card kpi">
+        <div class="lbl">${inst.nome}</div>
+        <div class="val pos">${fmt(total)}</div>
+        <div class="sub">${totalLabel}</div>
+        <div class="sub" style="margin-top:6px;">${pct(avgPct)} do rendimento médio/mês</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('secInvestimentos').innerHTML = cards;
+}
+
 // ---------- Carregamento e arranque ----------
 async function init() {
   try {
-    const [transacoes, entradas, poupanca, parametros, contas, categorias, subcategorias, categoriasEntrada, subcategoriasEntrada, instituicoes, tecnicas, alertas] = await Promise.all([
+    const [transacoes, entradas, poupanca, investimentos, parametros, contas, categorias, subcategorias, categoriasEntrada, subcategoriasEntrada, instituicoes, tecnicas, alertas] = await Promise.all([
       sbFetch('transacoes', 'select=*,subcategorias(nome,categoria)'),
       sbFetch('entradas', 'select=*,subcategorias_entrada(nome,categoria)'),
       sbFetch('poupanca'),
+      sbFetch('investimentos'),
       sbFetch('parametros'),
       sbFetch('contas_bancarias'),
       sbFetch('categorias', 'select=*&order=ordem'),
@@ -867,8 +918,13 @@ async function init() {
     CURRENT_BALANCE_TODAY = paramMap['saldo_hoje_contas'] || 0;
     EMERGENCY_FUND_BALANCE = paramMap['saldo_reserva_emergencia'] || 0;
 
-    instituicoes.forEach(i => { INSTITUICOES[i.tipo] = { nome: i.nome, processador: i.processador, chave: i.chave }; });
+    // "||" garante que, havendo várias instituições com o mesmo tipo (ex: vários "investimento"),
+    // fica a primeira por ordem — sem isto, cada instituição nova sobrescrevia a anterior.
+    instituicoes.forEach(i => { INSTITUICOES[i.tipo] = INSTITUICOES[i.tipo] || { nome: i.nome, processador: i.processador, chave: i.chave }; });
+    INSTITUICOES_LIST = instituicoes;
     TECNICAS = tecnicas;
+    POUPANCA_ROWS = poupanca;
+    INVESTIMENTOS_ROWS = investimentos;
 
     CATEGORY_ORDER = categorias.map(c => c.nome);
     categorias.forEach(c => {
@@ -902,15 +958,34 @@ async function init() {
      };
     });
 
+    const CONTA_BANCO = {};
+    contas.forEach(c => { CONTA_BANCO[c.id] = c.banco; });
+    const trConta = contas.find(c => c.banco === 'Trade Republic');
+    const trContaId = trConta ? trConta.id : null;
+
+    // Meses em que pelo menos uma das contas do dia a dia (Abanca/Revolut) tem atividade —
+    // usado para não deixar os meses só com atividade da TR (ex: 2024, antes da Abanca/Revolut
+    // estarem cobertas) distorcerem as médias mensais do painel.
+    const MESES_COM_CONTA_PRINCIPAL = new Set();
+
     MONTHLY = {};
     function ensure(mk) {
       if (!MONTHLY[mk]) MONTHLY[mk] = { income_salary: 0, income_other: 0, trade_republic: 0, expenses: {}, income_detail: {}, extraordinary: [], income_extraordinary: [] };
       return MONTHLY[mk];
     }
     PENDENTES_REVISAO = [];
+    ENTRADAS_TR_INTERNAS = [];
     entradas.forEach(e => {
       const m = ensure(e.mes_referencia);
       const val = parseFloat(e.valor);
+      const banco = CONTA_BANCO[e.conta_id];
+      if (banco === 'Abanca' || banco === 'Revolut') MESES_COM_CONTA_PRINCIPAL.add(e.mes_referencia);
+      if (e.conta_id === trContaId && e.extraordinario) {
+        // Depósitos para a TR (transferências internas) — contam para a "reserva de emergência",
+        // mas não como rendimento novo (dinheiro que só mudou de conta).
+        m.trade_republic += val;
+        ENTRADAS_TR_INTERNAS.push({ mes_referencia: e.mes_referencia, valor: val });
+      }
       if (e.extraordinario) {
         m.income_extraordinary.push({ desc: e.descricao, amount: val, date: e.data });
         return;
@@ -928,13 +1003,11 @@ async function init() {
       m.income_detail[cat] = m.income_detail[cat] || {};
       m.income_detail[cat][sub] = (m.income_detail[cat][sub] || 0) + val;
     });
-    poupanca.forEach(p => {
-      const m = ensure(p.mes_referencia);
-      m.trade_republic += parseFloat(p.valor);
-    });
     transacoes.forEach(t => {
       const m = ensure(t.mes_referencia);
       const val = parseFloat(t.valor);
+      const banco = CONTA_BANCO[t.conta_id];
+      if (banco === 'Abanca' || banco === 'Revolut') MESES_COM_CONTA_PRINCIPAL.add(t.mes_referencia);
       if (t.extraordinario) {
         m.extraordinary.push({ desc: t.descricao, amount: -val, date: t.data, categoria: t.categoria });
         return;
@@ -951,7 +1024,8 @@ async function init() {
     });
 
     MONTH_ORDER = Object.keys(MONTHLY).sort();
-    COMPLETE_MONTHS = MONTH_ORDER.length > 1 ? MONTH_ORDER.slice(0, -1) : MONTH_ORDER;
+    const mesesComContaPrincipal = MONTH_ORDER.filter(mk => MESES_COM_CONTA_PRINCIPAL.has(mk));
+    COMPLETE_MONTHS = mesesComContaPrincipal.length > 1 ? mesesComContaPrincipal.slice(0, -1) : mesesComContaPrincipal;
     MONTH_LABELS = {};
     MONTH_ORDER.forEach(mk => { MONTH_LABELS[mk] = labelForMonth(mk); });
 
@@ -968,6 +1042,7 @@ async function init() {
     renderAlertBanner();
     renderReviewQueue();
     renderSyncPill(transacoes, entradas);
+    renderInvestimentos();
 
     document.getElementById('loadState').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
