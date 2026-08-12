@@ -190,7 +190,7 @@ async function sbFetch(table, query) {
   }
   return all;
 }
-  
+
 // ---------- Estado global (preenchido após o fetch) ----------
 let MONTHLY = {};
 let MONTH_ORDER = [];
@@ -1012,14 +1012,17 @@ async function init() {
         m.trade_republic += val;
         ENTRADAS_TR_INTERNAS.push({ mes_referencia: e.mes_referencia, valor: val });
       }
-      if (e.extraordinario) {
-        m.income_extraordinary.push({ desc: e.descricao, amount: val, date: e.data });
-        return;
-      }
+      // A verificação de "revisto" é feita antes do return de "extraordinario": uma entrada
+      // pode ser simultaneamente extraordinária e ainda não revista, e nesse caso deve continuar
+      // a aparecer na fila de revisão.
       if (e.revisto === false) {
         const catSug = e.subcategorias_entrada ? e.subcategorias_entrada.categoria : 'Por categorizar';
         const subSug = e.subcategorias_entrada ? e.subcategorias_entrada.nome : 'Por categorizar';
         PENDENTES_REVISAO.push({ id: e.id, descricao: e.descricao, valor: val, data: e.data, categoriaSugerida: catSug, subcategoriaSugerida: subSug, origem: 'entradas' });
+      }
+      if (e.extraordinario) {
+        m.income_extraordinary.push({ desc: e.descricao, amount: val, date: e.data });
+        return;
       }
       if (e.tipo === 'salario') m.income_salary += val; else m.income_other += val;
       // Fonte de verdade: join via subcategoria_id (FK). Fallback para "Outras entradas/Não categorizado"
@@ -1034,12 +1037,14 @@ async function init() {
       const val = parseFloat(t.valor);
       const banco = CONTA_BANCO[t.conta_id];
       if (banco === 'Abanca' || banco === 'Revolut') MESES_COM_CONTA_PRINCIPAL.add(t.mes_referencia);
+      // Idem: "revisto" é avaliado antes do return de "extraordinario", para transações
+      // extraordinárias por rever continuarem a aparecer na fila de revisão.
+      if (t.revisto === false) {
+        PENDENTES_REVISAO.push({ id: t.id, descricao: t.descricao, valor: val, data: t.data, categoriaSugerida: t.categoria, subcategoriaSugerida: t.subcategoria, origem: 'transacoes' });
+      }
       if (t.extraordinario) {
         m.extraordinary.push({ desc: t.descricao, amount: -val, date: t.data, categoria: t.categoria });
         return;
-      }
-      if (t.revisto === false) {
-        PENDENTES_REVISAO.push({ id: t.id, descricao: t.descricao, valor: val, data: t.data, categoriaSugerida: t.categoria, subcategoriaSugerida: t.subcategoria, origem: 'transacoes' });
       }
       // Fonte de verdade: join via subcategoria_id (FK). Fallback ao texto solto
       // só por segurança, para transações antigas sem subcategoria_id preenchido.
