@@ -255,13 +255,17 @@ function fmt2(n) {
 }
 function pct(n) { return (Math.round(n * 10) / 10).toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'; }
 
-function emptyAgg() { return { income_salary: 0, income_other: 0, trade_republic: 0, expenses: {}, income_detail: {}, extraordinary: [], income_extraordinary: [], monthsCount: 0 }; }
+function emptyAgg() { return { income_salary: 0, income_other: 0, trade_republic: 0, investimentos: 0, investimentosPorInstituicao: {}, expenses: {}, income_detail: {}, extraordinary: [], income_extraordinary: [], monthsCount: 0 }; }
 function addMonth(agg, mk) {
   const m = MONTHLY[mk];
   if (!m) return;
   agg.income_salary += m.income_salary;
   agg.income_other += m.income_other;
   agg.trade_republic += m.trade_republic;
+  agg.investimentos += (m.investimentos || 0);
+  for (const [instId, amt] of Object.entries(m.investimentosPorInstituicao || {})) {
+    agg.investimentosPorInstituicao[instId] = (agg.investimentosPorInstituicao[instId] || 0) + amt;
+  }
   agg.extraordinary = agg.extraordinary.concat(m.extraordinary);
   agg.income_extraordinary = agg.income_extraordinary.concat(m.income_extraordinary || []);
   for (const [cat, subs] of Object.entries(m.expenses)) {
@@ -364,12 +368,13 @@ function computeView(filter) {
 
   const income = agg.income_salary + agg.income_other;
   const expenses = totalExpenses(agg);
-  const saldo = income - expenses - agg.trade_republic;
+  const saldo = income - expenses - agg.trade_republic - agg.investimentos;
 
   const avgIncome = (avgAgg.income_salary + avgAgg.income_other) / avgDivisor;
   const avgExpenses = totalExpenses(avgAgg) / avgDivisor;
   const avgTR = avgAgg.trade_republic / avgDivisor;
-  const avgSaldo = avgIncome - avgExpenses - avgTR;
+  const avgInvestimentos = avgAgg.investimentos / avgDivisor;
+  const avgSaldo = avgIncome - avgExpenses - avgTR - avgInvestimentos;
   const avgSalary = avgAgg.income_salary / avgDivisor;
   const avgOther = avgAgg.income_other / avgDivisor;
 
@@ -403,7 +408,8 @@ function computeView(filter) {
     label: isAll ? `Todo o período (${PERIOD_LABEL})` : MONTH_LABELS[filter],
     monthsCount: keys.length, avgDivisor,
     income, expenses, saldo, trade_republic: agg.trade_republic,
-    avgIncome, avgExpenses, avgSaldo, avgTR, avgSalary, avgOther,
+    investimentos: agg.investimentos, investimentosPorInstituicao: agg.investimentosPorInstituicao,
+    avgIncome, avgExpenses, avgSaldo, avgTR, avgInvestimentos, avgSalary, avgOther,
     catTotals, catPct,
     incomeCatTotals, incomeCatPct, incomeRisk, incomeRiskPct,
     incomeExtraordinary: agg.income_extraordinary,
@@ -557,11 +563,24 @@ function renderSection3(v) {
   const saldo = v.isAll ? v.avgSaldo : v.saldo;
   const teorica = income > 0 ? ((income - expenses) / income * 100) : 0;
   const real = income > 0 ? (saldo / income * 100) : 0;
+
+  // Alocações que separam a barra Teórica da Real: reserva de emergência (TR) + cada
+  // instituição de investimento (PPR, IBKR, Crypto). Usa a mesma base do período selecionado
+  // (média/mês em "Todos os meses", valor do próprio mês caso contrário).
+  const divisor = v.isAll ? v.avgDivisor : 1;
+  const trAmt = (v.isAll ? v.avgTR : v.trade_republic) || 0;
+  const investPorInst = v.investimentosPorInstituicao || {};
+  const rows = [{ nome: INSTITUICOES.reserva_emergencia.nome, val: trAmt }]
+    .concat(INSTITUICOES_LIST.filter(i => i.tipo === 'investimento')
+      .map(i => ({ nome: i.nome, val: (investPorInst[i.id] || 0) / divisor })))
+    .filter(r => r.val > 0.01);
+  const totalAlocado = trAmt + (v.isAll ? v.avgInvestimentos : v.investimentos);
+
   document.getElementById('sec3').innerHTML = `
     <div>
       <div class="progresslabel"><span>Teórica (rendimento − despesas)</span><span><b>${pct(teorica)}</b></span></div>
       <div class="bar-outer"><div class="bar-inner" style="width:${Math.max(0, Math.min(100, teorica))}%;background:var(--acc)"></div></div>
-      <div class="mini">inclui a parte que vai para o ${INSTITUICOES.reserva_emergencia.nome} e a parte não alocada</div>
+      <div class="mini">inclui o que foi alocado à reserva e a investimentos, além da parte não alocada</div>
     </div>
     <div>
       <div class="progresslabel"><span>Real (saldo que efetivamente sobra)</span><span><b class="${real >= 15 ? 'pos' : 'warncol'}">${pct(real)}</b></span></div>
@@ -569,9 +588,11 @@ function renderSection3(v) {
       <div class="mini">${real < 5 ? 'a fatia "não alocada" está a evaporar em despesas' : 'boa margem retida neste período'}</div>
     </div>
     <div>
-      <div class="progresslabel"><span>Objetivo saudável</span><span><b class="pos">20%</b></span></div>
-      <div class="bar-outer"><div class="bar-inner" style="width:20%;background:var(--good)"></div></div>
-      <div class="mini">referência geral de poupança</div>
+      <div class="progresslabel"><span>Da teórica para a real</span></div>
+      <ul style="list-style:none;margin:0;padding:0;">
+        ${rows.map(r => `<li style="display:flex;justify-content:space-between;font-size:13px;color:var(--ink);padding:4px 0;"><span style="color:var(--sub)">${r.nome}</span><span>${fmt2(r.val)}</span></li>`).join('') || '<li style="font-size:12.5px;color:var(--mut);padding:4px 0;">Sem alocações identificadas neste período</li>'}
+        <li style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:var(--ink);padding:8px 0 0;border-top:1px solid var(--line);margin-top:6px;"><span>Total alocado</span><span class="neg">${fmt2(totalAlocado)}</span></li>
+      </ul>
     </div>
   `;
 }
@@ -1031,7 +1052,7 @@ async function init() {
 
     MONTHLY = {};
     function ensure(mk) {
-      if (!MONTHLY[mk]) MONTHLY[mk] = { income_salary: 0, income_other: 0, trade_republic: 0, expenses: {}, income_detail: {}, extraordinary: [], income_extraordinary: [] };
+      if (!MONTHLY[mk]) MONTHLY[mk] = { income_salary: 0, income_other: 0, trade_republic: 0, investimentos: 0, investimentosPorInstituicao: {}, expenses: {}, income_detail: {}, extraordinary: [], income_extraordinary: [] };
       return MONTHLY[mk];
     }
     PENDENTES_REVISAO = [];
@@ -1087,6 +1108,20 @@ async function init() {
       const sub = t.subcategorias ? t.subcategorias.nome : t.subcategoria;
       m.expenses[cat] = m.expenses[cat] || {};
       m.expenses[cat][sub] = (m.expenses[cat][sub] || 0) + val;
+    });
+
+    // Contribuições para poupança/investimento (PPR, IBKR, Crypto) — cada linha em "poupanca"/
+    // "investimentos" já corresponde 1:1 a uma transação extraordinária (via transacao_id), por
+    // isso não há duplicação com as despesas. Filtra por tipo "investimento" para nunca incluir
+    // por engano a reserva de emergência (hoje a TR não tem linhas nestas tabelas).
+    const INSTITUICAO_TIPO = {};
+    instituicoes.forEach(i => { INSTITUICAO_TIPO[i.id] = i.tipo; });
+    poupanca.concat(investimentos).forEach(d => {
+      if (INSTITUICAO_TIPO[d.instituicao_id] !== 'investimento') return;
+      const m = ensure(d.mes_referencia);
+      const val = parseFloat(d.valor);
+      m.investimentos += val;
+      m.investimentosPorInstituicao[d.instituicao_id] = (m.investimentosPorInstituicao[d.instituicao_id] || 0) + val;
     });
 
     MONTH_ORDER = Object.keys(MONTHLY).sort();
