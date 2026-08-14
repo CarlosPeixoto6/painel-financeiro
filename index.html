@@ -409,7 +409,7 @@ function computeView(filter) {
     monthsCount: keys.length, avgDivisor,
     income, expenses, saldo, trade_republic: agg.trade_republic,
     investimentos: agg.investimentos, investimentosPorInstituicao: agg.investimentosPorInstituicao,
-    avgIncome, avgExpenses, avgSaldo, avgTR, avgInvestimentos, avgSalary, avgOther,
+    avgIncome, avgExpenses, avgSaldo, avgTR, avgInvestimentos, avgInvestimentosPorInstituicao: avgAgg.investimentosPorInstituicao, avgSalary, avgOther,
     catTotals, catPct,
     incomeCatTotals, incomeCatPct, incomeRisk, incomeRiskPct,
     incomeExtraordinary: agg.income_extraordinary,
@@ -557,42 +557,49 @@ function renderIncomeStabilityAndRisk(v) {
   }
 }
 
+// Abreviaturas usadas na legenda compacta da secção "Taxa de poupança", para caber na
+// mesma largura de coluna que as notas das barras Teórica/Real.
+const INSTITUTION_ABBR = { 'Trade Republic': 'TR', 'Interactive Brokers': 'IBKR', 'PPR SGF Stoik': 'PPR', 'Crypto': 'Crypto' };
+const ALLOC_COLORS = ['var(--acc2)', 'var(--good)', 'var(--warn)', 'var(--bad)'];
+
 function renderSection3(v) {
   const income = v.isAll ? v.avgIncome : v.income;
   const expenses = v.isAll ? v.avgExpenses : v.expenses;
   const saldo = v.isAll ? v.avgSaldo : v.saldo;
   const teorica = income > 0 ? ((income - expenses) / income * 100) : 0;
   const real = income > 0 ? (saldo / income * 100) : 0;
+  // Limiar único (15%) partilhado pela cor e pelo texto da barra Real, para os dois nunca discordarem.
+  const realOk = real >= 15;
 
   // Alocações que separam a barra Teórica da Real: reserva de emergência (TR) + cada
   // instituição de investimento (PPR, IBKR, Crypto). Usa a mesma base do período selecionado
   // (média/mês em "Todos os meses", valor do próprio mês caso contrário).
   const divisor = v.isAll ? v.avgDivisor : 1;
   const trAmt = (v.isAll ? v.avgTR : v.trade_republic) || 0;
-  const investPorInst = v.investimentosPorInstituicao || {};
-  const rows = [{ nome: INSTITUICOES.reserva_emergencia.nome, val: trAmt }]
+  const investPorInst = (v.isAll ? v.avgInvestimentosPorInstituicao : v.investimentosPorInstituicao) || {};
+  const rows = [{ nome: INSTITUICOES.reserva_emergencia.nome, val: trAmt, cor: 'var(--acc)' }]
     .concat(INSTITUICOES_LIST.filter(i => i.tipo === 'investimento')
-      .map(i => ({ nome: i.nome, val: (investPorInst[i.id] || 0) / divisor })))
+      .map((i, idx) => ({ nome: i.nome, val: (investPorInst[i.id] || 0) / divisor, cor: ALLOC_COLORS[idx % ALLOC_COLORS.length] })))
     .filter(r => r.val > 0.01);
   const totalAlocado = trAmt + (v.isAll ? v.avgInvestimentos : v.investimentos);
 
   document.getElementById('sec3').innerHTML = `
     <div>
-      <div class="progresslabel"><span>Teórica (rendimento − despesas)</span><span><b>${pct(teorica)}</b></span></div>
+      <div class="progresslabel"><span>Teórica</span><span><b>${pct(teorica)}</b></span></div>
       <div class="bar-outer"><div class="bar-inner" style="width:${Math.max(0, Math.min(100, teorica))}%;background:var(--acc)"></div></div>
-      <div class="mini">inclui o que foi alocado à reserva e a investimentos, além da parte não alocada</div>
+      <div class="mini">rendimento − despesas; inclui o que foi alocado à reserva e a investimentos</div>
     </div>
     <div>
-      <div class="progresslabel"><span>Real (saldo que efetivamente sobra)</span><span><b class="${real >= 15 ? 'pos' : 'warncol'}">${pct(real)}</b></span></div>
-      <div class="bar-outer"><div class="bar-inner" style="width:${Math.max(0, Math.min(100, real))}%;background:${real >= 15 ? 'var(--good)' : 'var(--warn)'}"></div></div>
-      <div class="mini">${real < 5 ? 'a fatia "não alocada" está a evaporar em despesas' : 'boa margem retida neste período'}</div>
+      <div class="progresslabel"><span>Real</span><span><b class="${realOk ? 'pos' : 'warncol'}">${pct(real)}</b></span></div>
+      <div class="bar-outer"><div class="bar-inner" style="width:${Math.max(0, Math.min(100, real))}%;background:${realOk ? 'var(--good)' : 'var(--warn)'}"></div></div>
+      <div class="mini">${realOk ? 'boa margem retida neste período' : 'a fatia "não alocada" está a evaporar em despesas'}</div>
     </div>
     <div>
-      <div class="progresslabel"><span>Da teórica para a real</span></div>
-      <ul style="list-style:none;margin:0;padding:0;">
-        ${rows.map(r => `<li style="display:flex;justify-content:space-between;font-size:13px;color:var(--ink);padding:4px 0;"><span style="color:var(--sub)">${r.nome}</span><span>${fmt2(r.val)}</span></li>`).join('') || '<li style="font-size:12.5px;color:var(--mut);padding:4px 0;">Sem alocações identificadas neste período</li>'}
-        <li style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:var(--ink);padding:8px 0 0;border-top:1px solid var(--line);margin-top:6px;"><span>Total alocado</span><span class="neg">${fmt2(totalAlocado)}</span></li>
-      </ul>
+      <div class="progresslabel"><span>Da teórica para a real</span><span style="font-weight:700;color:var(--bad);font-size:13.5px;">${fmt2(totalAlocado)}</span></div>
+      <div class="bar-outer" style="display:flex;">${rows.map(r => `<div style="width:${totalAlocado > 0 ? (r.val / totalAlocado * 100) : 0}%;background:${r.cor};height:100%;"></div>`).join('')}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px 10px;margin-top:6px;">
+        ${rows.map(r => `<span class="mini" style="white-space:nowrap;"><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:${r.cor};margin-right:4px;"></span>${INSTITUTION_ABBR[r.nome] || r.nome} ${fmt2(r.val)}</span>`).join('') || '<span class="mini">Sem alocações neste período</span>'}
+      </div>
     </div>
   `;
 }
