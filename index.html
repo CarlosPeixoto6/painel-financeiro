@@ -74,6 +74,24 @@
   .rangebar button{background:transparent;border:none;color:var(--sub);font-size:12.5px;font-family:inherit;padding:6px 12px;border-radius:6px;cursor:pointer;}
   .rangebar button:hover{color:var(--ink);}
   .rangebar button.active{background:var(--acc);color:var(--panel2);font-weight:700;}
+  .monthpicker{position:relative;}
+  .monthpicker-btn{display:flex;align-items:center;gap:6px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:12.5px;font-family:inherit;cursor:pointer;}
+  .monthpicker-btn:hover{border-color:var(--acc);}
+  .monthpicker-btn.active{border-color:var(--acc);color:var(--acc);}
+  .monthpicker-btn .chev{font-size:11px;color:var(--mut);}
+  .monthpicker-pop{position:absolute;top:calc(100% + 6px);left:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;width:210px;z-index:20;}
+  .monthpicker-all{font-size:12.5px;color:var(--sub);padding:6px 4px 10px;border-bottom:1px solid var(--line);margin-bottom:10px;cursor:pointer;}
+  .monthpicker-all:hover{color:var(--ink);}
+  .monthpicker-yearnav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .monthpicker-yearnav button{background:transparent;border:none;color:var(--sub);font-size:15px;font-family:inherit;cursor:pointer;padding:2px 6px;}
+  .monthpicker-yearnav button:disabled{opacity:.3;cursor:default;}
+  .monthpicker-yearnav button:hover:not(:disabled){color:var(--ink);}
+  .monthpicker-yearnav .yr{font-size:13px;font-weight:700;color:var(--ink);}
+  .monthpicker-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+  .monthpicker-grid span{font-size:11px;text-align:center;padding:7px 0;border-radius:6px;background:var(--panel2);color:var(--ink);cursor:pointer;}
+  .monthpicker-grid span:hover{background:var(--line);}
+  .monthpicker-grid span.disabled{color:var(--mut);opacity:.35;cursor:default;pointer-events:none;background:transparent;}
+  .monthpicker-grid span.selected{background:var(--acc);color:var(--panel2);font-weight:700;}
   .loadstate{padding:80px 0;text-align:center;color:var(--sub);font-size:14px;}
   .errstate{padding:40px 0;text-align:center;color:var(--bad);font-size:14px;}
   .alertbanner{display:flex;align-items:center;gap:10px;background:rgba(240,185,77,.12);border:1px solid rgba(240,185,77,.35);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:13px;color:var(--warn);}
@@ -113,8 +131,20 @@
         <button type="button" class="rangebtn" data-range="range-ytd" onclick="selectRange('range-ytd')">YTD</button>
         <button type="button" class="rangebtn" data-range="all" onclick="selectRange('all')">Tudo</button>
       </div>
-      <label for="monthFilter">Mês específico</label>
-      <select id="monthFilter" onchange="clearRangeButtons(); render(this.value)"></select>
+      <div class="monthpicker" id="monthPicker">
+        <button type="button" class="monthpicker-btn" id="monthPickerBtn" onclick="toggleMonthPicker()">
+          📅 <span id="monthPickerLabel">Mês específico</span> <span class="chev">▾</span>
+        </button>
+        <div class="monthpicker-pop" id="monthPickerPop" style="display:none;">
+          <div class="monthpicker-all" onclick="selectSpecificAll()">Todos os meses</div>
+          <div class="monthpicker-yearnav">
+            <button type="button" id="monthPickerPrev" onclick="shiftPickerYear(-1)">‹</button>
+            <span class="yr" id="monthPickerYear"></span>
+            <button type="button" id="monthPickerNext" onclick="shiftPickerYear(1)">›</button>
+          </div>
+          <div class="monthpicker-grid" id="monthPickerGrid"></div>
+        </div>
+      </div>
       <span class="scopepill" id="scopePill"></span>
       <span class="extrapill" id="extraPill" style="display:none;" title=""></span>
       <span class="techpill" id="techPill" style="display:none;" title=""></span>
@@ -216,6 +246,11 @@ let CURRENT_BALANCE_TODAY = 0;
 let EMERGENCY_FUND_BALANCE = 0;
 let ALERTAS = [];
 let PENDENTES_REVISAO = [];
+// Filtro atualmente ativo ('all', 'range-3'/'range-6'/'range-12'/'range-ytd', ou uma chave de
+// mês 'AAAA-MM') — substitui o valor que antes vinha do <select> nativo.
+let ACTIVE_FILTER = 'all';
+// Ano atualmente aberto no popover do seletor de mês (não é necessariamente o do filtro ativo).
+let MONTH_PICKER_YEAR = null;
 // SUBCATS_BY_CATEGORIA[cat] = [{id, nome}] — usado nos dropdowns da fila de revisão
 let SUBCATS_BY_CATEGORIA = {};
 // SUBCATS_BY_CATEGORIA_ENTRADA[cat] = [{id, nome}] — mesma ideia, para entradas
@@ -470,26 +505,10 @@ function computeView(filter) {
 
 // ---------- Rendering ----------
 
-function renderFilterOptions() {
-  const sel = document.getElementById('monthFilter');
-  sel.innerHTML = '';
-  const optAll = document.createElement('option');
-  optAll.value = 'all'; optAll.textContent = 'Todos os meses (período completo)';
-  sel.appendChild(optAll);
-  // Só meses com atividade Abanca/Revolut — meses só-TR (ex: histórico antes da Abanca/Revolut
-  // estarem sincronizadas) continuam a contar em "Todos os meses", mas não aparecem aqui
-  // como seleção individual, porque a TR sozinha não representa um mês completo do dia a dia.
-  PRINCIPAL_MONTHS.forEach(k => {
-    const o = document.createElement('option');
-    o.value = k; o.textContent = MONTH_LABELS[k];
-    sel.appendChild(o);
-  });
-  sel.value = 'all';
-}
-
 function selectRange(key) {
-  document.getElementById('monthFilter').value = 'all';
+  ACTIVE_FILTER = key;
   updateRangeButtons(key);
+  updateMonthPickerLabel();
   render(key);
 }
 function clearRangeButtons() { updateRangeButtons(null); }
@@ -498,6 +517,81 @@ function updateRangeButtons(activeKey) {
     b.classList.toggle('active', b.getAttribute('data-range') === activeKey);
   });
 }
+
+// ---------- Seletor de mês compacto (botão + popover, um ano de cada vez) ----------
+// Só lista meses com atividade Abanca/Revolut (PRINCIPAL_MONTHS) — meses só-TR não aparecem
+// como seleção individual, tal como já acontecia na dropdown que este picker substitui.
+function currentMonthKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+function availablePickerYears() {
+  return [...new Set(PRINCIPAL_MONTHS.map(mk => mk.slice(0, 4)))].sort();
+}
+function toggleMonthPicker() {
+  const isOpen = document.getElementById('monthPickerPop').style.display !== 'none';
+  if (isOpen) closeMonthPicker(); else openMonthPicker();
+}
+function openMonthPicker() {
+  const years = availablePickerYears();
+  const isSpecificActive = ACTIVE_FILTER !== 'all' && !isRangeFilter(ACTIVE_FILTER);
+  let targetYear = isSpecificActive ? ACTIVE_FILTER.slice(0, 4) : currentMonthKey().slice(0, 4);
+  if (!years.includes(targetYear)) targetYear = years.length ? years[years.length - 1] : targetYear;
+  MONTH_PICKER_YEAR = targetYear;
+  renderMonthPickerGrid();
+  document.getElementById('monthPickerPop').style.display = 'block';
+}
+function closeMonthPicker() {
+  document.getElementById('monthPickerPop').style.display = 'none';
+}
+function shiftPickerYear(delta) {
+  const years = availablePickerYears();
+  const next = years[years.indexOf(MONTH_PICKER_YEAR) + delta];
+  if (next) { MONTH_PICKER_YEAR = next; renderMonthPickerGrid(); }
+}
+function renderMonthPickerGrid() {
+  const years = availablePickerYears();
+  const idx = years.indexOf(MONTH_PICKER_YEAR);
+  document.getElementById('monthPickerYear').textContent = MONTH_PICKER_YEAR || '';
+  document.getElementById('monthPickerPrev').disabled = idx <= 0;
+  document.getElementById('monthPickerNext').disabled = idx === -1 || idx >= years.length - 1;
+
+  const available = new Set(PRINCIPAL_MONTHS.filter(mk => mk.slice(0, 4) === MONTH_PICKER_YEAR));
+  const isSpecificActive = ACTIVE_FILTER !== 'all' && !isRangeFilter(ACTIVE_FILTER);
+  // Sem mês específico selecionado (filtro "Tudo" ou um atalho de intervalo), o mês atual
+  // aparece destacado por defeito, como ponto de partida.
+  const highlightKey = isSpecificActive ? ACTIVE_FILTER : currentMonthKey();
+
+  document.getElementById('monthPickerGrid').innerHTML = MONTH_NAMES_PT.map((name, i) => {
+    const mk = `${MONTH_PICKER_YEAR}-${String(i + 1).padStart(2, '0')}`;
+    const has = available.has(mk);
+    const cls = !has ? 'disabled' : (mk === highlightKey ? 'selected' : '');
+    return `<span class="${cls}" ${has ? `onclick="selectSpecificMonth('${mk}')"` : ''}>${name.slice(0, 3)}</span>`;
+  }).join('');
+}
+function selectSpecificMonth(mk) {
+  ACTIVE_FILTER = mk;
+  clearRangeButtons();
+  updateMonthPickerLabel();
+  closeMonthPicker();
+  render(mk);
+}
+function selectSpecificAll() {
+  ACTIVE_FILTER = 'all';
+  updateRangeButtons('all');
+  updateMonthPickerLabel();
+  closeMonthPicker();
+  render('all');
+}
+function updateMonthPickerLabel() {
+  const isSpecificActive = ACTIVE_FILTER !== 'all' && !isRangeFilter(ACTIVE_FILTER);
+  document.getElementById('monthPickerLabel').textContent = isSpecificActive ? MONTH_LABELS[ACTIVE_FILTER] : 'Mês específico';
+  document.getElementById('monthPickerBtn').classList.toggle('active', isSpecificActive);
+}
+document.addEventListener('click', (e) => {
+  const picker = document.getElementById('monthPicker');
+  if (picker && !picker.contains(e.target)) closeMonthPicker();
+});
 
 function renderSection1(v) {
   document.getElementById('h2-1').textContent = v.isAll ? 'Visão geral (médias mensais)' : 'Visão geral (mês selecionado)';
@@ -1207,9 +1301,9 @@ async function init() {
     const contaNomes = contas.map(c => c.nome_conta).join(' + ');
     document.getElementById('periodLabel').textContent = `${contaNomes} (cruzadas) · ${PERIOD_LABEL}`;
 
-    renderFilterOptions();
     render('all');
     updateRangeButtons('all');
+    updateMonthPickerLabel();
     renderAlertBanner();
     renderReviewQueue();
     renderSyncPill(transacoes, entradas);
