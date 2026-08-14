@@ -625,7 +625,7 @@ function renderSection6(v) {
       <div class="card" style="background:var(--panel2)"><div class="lbl mini">Ao ritmo de contribuição ${v.isAll ? 'médio' : 'deste mês'} (${fmt2(trRate)}/mês)</div><div class="val ${monthsToGoal ? 'pos' : 'warncol'}" style="font-size:19px">${monthsToGoal ? '~' + monthsToGoal.toFixed(1) + ' meses' : 'sem contribuição'}</div></div>
       <div class="card" style="background:var(--panel2)"><div class="lbl mini">Saldo hoje nas contas do dia a dia</div><div class="val neg" style="font-size:19px">${fmt2(CURRENT_BALANCE_TODAY)}</div></div>
     </div>
-    <div class="note">Saldo do ${INSTITUICOES.reserva_emergencia.nome} reportado pelo utilizador (conta fora destes extratos). Contribuições identificadas nestes extratos: ${trRate > 0 ? 'ativa neste período' : 'sem transferência registada neste período'}.</div>
+    <div class="note">Saldo ${INSTITUICOES.reserva_emergencia.nome} sincronizado automaticamente. Contribuições identificadas nestes extratos: ${trRate > 0 ? 'ativa neste período' : 'sem transferência registada neste período'}.</div>
   `;
 }
 
