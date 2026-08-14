@@ -104,6 +104,14 @@
   .reviewqueue button{background:var(--acc);color:var(--panel2);border:none;border-radius:6px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer;margin-left:8px;}
   .reviewqueue button:hover{opacity:.85;}
   .reviewqueue button:disabled{opacity:.5;cursor:default;}
+  .fugarow{background:rgba(90,169,230,.06);}
+  .fugabadge{display:inline-block;margin-left:7px;font-size:10.5px;font-weight:700;color:var(--acc);background:rgba(90,169,230,.12);border:1px solid rgba(90,169,230,.35);border-radius:20px;padding:2px 8px;}
+  .fuganote{padding:0 10px 9px;font-size:11px;color:var(--mut);border-bottom:1px solid var(--line);}
+  .fugaactions{display:flex;align-items:center;gap:6px;}
+  .fugaactions button{border-radius:6px;padding:4px 10px;font-size:11.5px;cursor:pointer;font-family:inherit;}
+  .fugaactions .ignorar{background:transparent;color:var(--sub);border:1px solid var(--line);}
+  .fugaactions .confirmar{background:var(--acc);color:var(--panel2);border:none;font-weight:700;}
+  .fugaactions button:disabled{opacity:.5;cursor:default;}
   @media(max-width:760px){.g4{grid-template-columns:repeat(2,1fr);}.g3{grid-template-columns:1fr;}.g2{grid-template-columns:1fr;}.flexrow{flex-direction:column;}.donut{margin:0 auto;}}
 </style>
 </head>
@@ -269,7 +277,7 @@ let CATEGORY_ORDER = [];
 let SUBCAT_KIND = {};
 // SUBCAT_FLAGS[cat][sub] = { fuga_dinheiro, renegociavel, poupanca_potencial_pct, alto_risco }
 let SUBCAT_FLAGS = {};
-// CATEGORY_FLAGS[cat] = { flag_impulso }
+// CATEGORY_FLAGS[cat] = { flag_impulso, excluir_sugestao_fuga }
 let CATEGORY_FLAGS = {};
 // Preenchidos a partir de "categorias_entrada" (Supabase) no init().
 let INCOME_CATEGORY_COLORS = {};
@@ -289,6 +297,10 @@ let INVESTIMENTOS_ROWS = [];
 // Entradas na Trade Republic marcadas como "Transferência interna" (dinheiro que só mudou de conta,
 // não é rendimento novo, mas conta como contribuição para o fundo de emergência).
 let ENTRADAS_TR_INTERNAS = [];
+// Sugestões automáticas de "fuga de dinheiro" (subcategorias ainda sem a flag, mas com padrão
+// de despesa mensal recorrente detetado nos últimos 6 meses) — calculadas uma vez no init(),
+// independentes do filtro de período selecionado no resto do painel.
+let SUGESTOES_FUGA = [];
 function kindOf(cat, sub) {
   const rules = SUBCAT_KIND[cat] || {};
   return rules[sub] || rules['*'] || 'discretionary';
@@ -759,16 +771,128 @@ function renderSection3(v) {
   `;
 }
 
+// Chave de agrupamento tolerante a variação de ordem das palavras e de origem (PDF vs Open
+// Banking), usada só para detetar candidatos a "fuga de dinheiro" — não confundir com
+// normalizar_descricao() (BD), que serve o mapeamento de categorização automática e tem
+// regras próprias (prefixos bancários) que não resolvem este caso (ex: valores que sobem).
+function fugaGroupKey(descricao) {
+  const tokens = descricao
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[0-9]+/g, ' ')
+    .replace(/[^a-z\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2);
+  return [...new Set(tokens)].sort().join(' ');
+}
+
+// Sugestões automáticas de "fuga de dinheiro": subcategorias ainda sem a flag manual, cuja
+// categoria não está excluída (excluir_sugestao_fuga), com uma descrição (normalizada) presente
+// em ≥5 dos últimos 6 meses — cadência mensal, tolerante a pequenas variações de valor/texto.
+function computeSugestoesFuga(transacoes, ignoradasSet) {
+  if (!MONTH_ORDER.length) return [];
+  const ultimos6 = MONTH_ORDER.slice(-6);
+  const ultimos6Set = new Set(ultimos6);
+
+  const grupos = {};
+  transacoes.forEach(t => {
+    if (t.extraordinario) return;
+    if (!t.subcategoria_id || !t.subcategorias) return;
+    const cat = t.subcategorias.categoria;
+    const sub = t.subcategorias.nome;
+    if (CATEGORY_FLAGS[cat] && CATEGORY_FLAGS[cat].excluir_sugestao_fuga) return;
+    if (flagsOf(cat, sub).fuga_dinheiro) return;
+    const key = t.subcategoria_id + '|' + fugaGroupKey(t.descricao);
+    if (ignoradasSet.has(key)) return;
+    grupos[key] = grupos[key] || { cat, sub, subcategoriaId: t.subcategoria_id, itens: [] };
+    grupos[key].itens.push(t);
+  });
+
+  const sugestoes = [];
+  Object.values(grupos).forEach(g => {
+    const mesesRecentes = new Set(g.itens.filter(t => ultimos6Set.has(t.mes_referencia)).map(t => t.mes_referencia));
+    if (mesesRecentes.size < 5) return;
+    g.itens.sort((a, b) => a.data < b.data ? -1 : 1);
+    const mais_recente = g.itens[g.itens.length - 1];
+    const valor = parseFloat(mais_recente.valor);
+    if (valor <= 0 || valor >= 50) return;
+    const desde = g.itens[0].mes_referencia;
+    sugestoes.push({
+      subcategoriaId: g.subcategoriaId,
+      cat: g.cat,
+      sub: g.sub,
+      descricao: mais_recente.descricao,
+      groupKey: fugaGroupKey(mais_recente.descricao),
+      valor,
+      desdeLabel: labelForMonth(desde),
+      mesesRecentes: mesesRecentes.size,
+    });
+  });
+  sugestoes.sort((a, b) => b.valor - a.valor);
+  return sugestoes;
+}
+
 function renderSection4(v) {
   const d = v.avgDivisor;
   const basis = x => v.isAll ? x / d : x;
   const items = fugaDinheiroItems(v.agg).map(it => ({ ...it, val: basis(it.amt) }));
   const total = items.reduce((a, it) => a + it.val, 0);
+  const totalComSugestoes = total + SUGESTOES_FUGA.reduce((a, s) => a + s.valor, 0);
   document.getElementById('sec4').innerHTML = `
     <tr><th>Origem</th><th class="right">${v.isAll ? 'Mensal (média)' : 'Neste mês'}</th><th class="right">Anual estimado</th><th>Ação</th></tr>
-    ${items.map(it => `<tr><td>${it.sub}</td><td class="right ${it.val > 30 ? 'warncol' : ''}">${fmt2(it.val)}</td><td class="right">${fmt(it.val * 12)}</td><td>${it.nota || '—'}</td></tr>`).join('') || '<tr><td colspan="4">Sem fugas identificadas neste período</td></tr>'}
-    <tr><td><b>Total identificado</b></td><td></td><td class="right"><b>${fmt(total * 12)}/ano</b></td><td></td></tr>
+    ${items.map(it => `<tr><td>${it.sub}</td><td class="right ${it.val > 30 ? 'warncol' : ''}">${fmt2(it.val)}</td><td class="right">${fmt(it.val * 12)}</td><td>${it.nota || '—'}</td></tr>`).join('') || (SUGESTOES_FUGA.length ? '' : '<tr><td colspan="4">Sem fugas identificadas neste período</td></tr>')}
+    ${SUGESTOES_FUGA.map(s => `
+      <tr class="fugarow">
+        <td>${s.sub}<span class="fugabadge">sugestão</span></td>
+        <td class="right warncol">${fmt2(s.valor)}</td>
+        <td class="right">${fmt(s.valor * 12)}</td>
+        <td>
+          <div class="fugaactions">
+            <button class="ignorar" onclick="ignorarFuga('${s.subcategoriaId}','${s.groupKey.replace(/'/g, "\\'")}',this)">Ignorar</button>
+            <button class="confirmar" onclick="confirmarFuga('${s.subcategoriaId}',this)">Confirmar</button>
+          </div>
+        </td>
+      </tr>
+      <tr class="fugarow"><td colspan="4" class="fuganote">mensal desde ${s.desdeLabel}</td></tr>
+    `).join('')}
+    <tr><td><b>Total identificado</b></td><td></td><td class="right"><b>${fmt(totalComSugestoes * 12)}/ano</b></td><td></td></tr>
   `;
+}
+
+async function confirmarFuga(subcategoriaId, btn) {
+  btn.disabled = true;
+  btn.textContent = 'A gravar…';
+  try {
+    const res = await fetch(SUPABASE_URL + '/functions/v1/confirmar-fuga-dinheiro', {
+      method: 'POST',
+      headers: { ...SB_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subcategoria_id: subcategoriaId }),
+    });
+    if (!res.ok) throw new Error('Falha ao gravar (HTTP ' + res.status + ')');
+    await init();
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Confirmar';
+    alert('Não foi possível gravar: ' + err.message);
+  }
+}
+
+async function ignorarFuga(subcategoriaId, groupKey, btn) {
+  btn.disabled = true;
+  btn.textContent = 'A gravar…';
+  try {
+    const res = await fetch(SUPABASE_URL + '/functions/v1/ignorar-fuga-dinheiro', {
+      method: 'POST',
+      headers: { ...SB_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subcategoria_id: subcategoriaId, descricao: groupKey }),
+    });
+    if (!res.ok) throw new Error('Falha ao gravar (HTTP ' + res.status + ')');
+    await init();
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Ignorar';
+    alert('Não foi possível gravar: ' + err.message);
+  }
 }
 
 function renderSection5(v) {
@@ -1140,7 +1264,7 @@ function renderInvestimentos() {
 // ---------- Carregamento e arranque ----------
 async function init() {
   try {
-    const [transacoes, entradas, poupanca, investimentos, parametros, contas, categorias, subcategorias, categoriasEntrada, subcategoriasEntrada, instituicoes, tecnicas, alertas] = await Promise.all([
+    const [transacoes, entradas, poupanca, investimentos, parametros, contas, categorias, subcategorias, categoriasEntrada, subcategoriasEntrada, instituicoes, tecnicas, alertas, fugaIgnoradas] = await Promise.all([
       sbFetch('transacoes', 'select=*,subcategorias(nome,categoria)'),
       sbFetch('entradas', 'select=*,subcategorias_entrada(nome,categoria)'),
       sbFetch('poupanca'),
@@ -1154,6 +1278,7 @@ async function init() {
       sbFetch('instituicoes_financeiras', 'select=*&order=ordem'),
       sbFetch('tecnicas_anti_impulso', 'select=*&order=ordem'),
       sbFetch('alertas_sistema', 'select=*&ativo=eq.true'),
+      sbFetch('fuga_dinheiro_ignoradas'),
     ]);
     ALERTAS = alertas;
 
@@ -1173,7 +1298,7 @@ async function init() {
     CATEGORY_ORDER = categorias.map(c => c.nome);
     categorias.forEach(c => {
     CATEGORY_COLORS[c.nome] = c.cor;
-    CATEGORY_FLAGS[c.nome] = { flag_impulso: !!c.flag_impulso };
+    CATEGORY_FLAGS[c.nome] = { flag_impulso: !!c.flag_impulso, excluir_sugestao_fuga: !!c.excluir_sugestao_fuga };
     });
 
     INCOME_CATEGORY_ORDER = categoriasEntrada.map(c => c.nome);
@@ -1297,6 +1422,9 @@ async function init() {
       const first = MONTH_ORDER[0], last = MONTH_ORDER[MONTH_ORDER.length - 1];
       PERIOD_LABEL = `${first} → ${last}`;
     }
+
+    const ignoradasSet = new Set(fugaIgnoradas.map(f => f.subcategoria_id + '|' + f.descricao));
+    SUGESTOES_FUGA = computeSugestoesFuga(transacoes, ignoradasSet);
 
     const contaNomes = contas.map(c => c.nome_conta).join(' + ');
     document.getElementById('periodLabel').textContent = `${contaNomes} (cruzadas) · ${PERIOD_LABEL}`;
