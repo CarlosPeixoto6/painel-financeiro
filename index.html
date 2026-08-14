@@ -476,7 +476,10 @@ function renderFilterOptions() {
   const optAll = document.createElement('option');
   optAll.value = 'all'; optAll.textContent = 'Todos os meses (período completo)';
   sel.appendChild(optAll);
-  MONTH_ORDER.forEach(k => {
+  // Só meses com atividade Abanca/Revolut — meses só-TR (ex: histórico antes da Abanca/Revolut
+  // estarem sincronizadas) continuam a contar em "Todos os meses", mas não aparecem aqui
+  // como seleção individual, porque a TR sozinha não representa um mês completo do dia a dia.
+  PRINCIPAL_MONTHS.forEach(k => {
     const o = document.createElement('option');
     o.value = k; o.textContent = MONTH_LABELS[k];
     sel.appendChild(o);
