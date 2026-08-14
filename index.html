@@ -605,6 +605,21 @@ function renderSection5(v) {
   document.getElementById('sec5').innerHTML = cards.join('');
 }
 
+// Plano de contribuição sugerida para a reserva de emergência — usa sempre as médias do
+// período completo (independente do filtro de mês selecionado no resto do painel), porque é
+// uma recomendação prospetiva, não uma leitura do mês corrente. Rendimento = só salário
+// (a única parte fixa); despesas = todas as categorias (não só fixed/essential).
+function computeContributionPlan() {
+  const divisor = COMPLETE_MONTHS.length || 1;
+  const agg = emptyAgg();
+  COMPLETE_MONTHS.forEach(k => addMonth(agg, k));
+  const avgSalary = agg.income_salary / divisor;
+  const avgExpensesAll = totalExpenses(agg) / divisor;
+  const excedente = avgSalary - avgExpensesAll;
+  const contribSugerida = Math.max(0, excedente * 0.5);
+  return { avgSalary, avgExpensesAll, excedente, contribSugerida };
+}
+
 function renderSection6(v) {
   const monthlyBase = v.isAll ? v.avgFixedEssential : v.fixedEssential;
   const goal = monthlyBase * 6;
@@ -612,23 +627,43 @@ function renderSection6(v) {
   const balance = trPanel.balance;
   const progressPct = goal > 0 ? Math.min(100, balance / goal * 100) : 0;
   const falta = Math.max(0, goal - balance);
-  // Ritmo de contribuição: no "todo o período" usa a mesma média do subpainel Trade Republic
-  // (secção 3); num mês específico, usa o valor desse mês.
-  const trRate = v.isAll ? trPanel.avgMonthly : v.trade_republic;
-  const monthsToGoal = trRate > 0 ? (falta / trRate) : null;
+
+  const plan = computeContributionPlan();
+  const goalAlargado = plan.avgExpensesAll * 6;
+  const progressAlargadoPct = goalAlargado > 0 ? Math.min(100, balance / goalAlargado * 100) : 0;
+  const faltaAlargado = Math.max(0, goalAlargado - balance);
+  const mesesSugerido = plan.contribSugerida > 0 ? (falta / plan.contribSugerida) : null;
+  const mesesSugeridoAlargado = plan.contribSugerida > 0 ? (faltaAlargado / plan.contribSugerida) : null;
 
   document.getElementById('sec6').innerHTML = `
     <div class="progresslabel"><span>${fmt(balance)} de ${fmt(goal)} (despesas fixas+essenciais × 6) — em ${INSTITUICOES.reserva_emergencia.nome}</span><span><b>${pct(progressPct)}</b></span></div>
     <div class="bar-outer"><div class="bar-inner" style="width:${progressPct}%;background:var(--good)"></div></div>
+
+    <div class="progresslabel" style="font-size:11.5px;color:var(--mut);margin-top:12px;"><span>Objetivo alargado (todas as despesas × 6)</span><span><b>${pct(progressAlargadoPct)}</b></span></div>
+    <div class="bar-outer" style="height:8px;"><div class="bar-inner" style="width:${progressAlargadoPct}%;background:var(--mut)"></div></div>
+
     <div class="split" style="margin-top:14px;">
-      <div class="card" style="background:var(--panel2)"><div class="lbl mini">Falta</div><div class="val" style="font-size:19px">${fmt(falta)}</div></div>
-      <div class="card" style="background:var(--panel2)"><div class="lbl mini">Ao ritmo de contribuição ${v.isAll ? 'médio' : 'deste mês'} (${fmt2(trRate)}/mês)</div><div class="val ${monthsToGoal ? 'pos' : 'warncol'}" style="font-size:19px">${monthsToGoal ? '~' + monthsToGoal.toFixed(1) + ' meses' : 'sem contribuição'}</div></div>
-      <div class="card" style="background:var(--panel2)"><div class="lbl mini">Saldo hoje nas contas do dia a dia</div><div class="val neg" style="font-size:19px">${fmt2(CURRENT_BALANCE_TODAY)}</div></div>
+      <div class="card" style="background:var(--panel2)"><div class="lbl mini">Falta</div><div class="val" style="font-size:19px">${fmt(falta)}</div><div class="mini" style="margin-top:6px;">alargado: ${fmt(faltaAlargado)}</div></div>
+      <div class="card" style="background:var(--panel2)"><div class="lbl mini">Ao ritmo sugerido (${fmt2(plan.contribSugerida)}/mês)</div><div class="val ${mesesSugerido !== null ? 'pos' : 'warncol'}" style="font-size:19px">${mesesSugerido !== null ? '~' + mesesSugerido.toFixed(1) + ' meses' : 'sem excedente'}</div><div class="mini" style="margin-top:6px;">alargado: ${mesesSugeridoAlargado !== null ? '~' + mesesSugeridoAlargado.toFixed(1) + ' meses' : '—'}</div></div>
     </div>
-    <div class="note">Saldo ${INSTITUICOES.reserva_emergencia.nome} sincronizado automaticamente. Contribuições identificadas nestes extratos: ${trRate > 0 ? 'ativa neste período' : 'sem transferência registada neste período'}.</div>
+
+    <div class="note">Saldo ${INSTITUICOES.reserva_emergencia.nome} sincronizado automaticamente.</div>
+
+    <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;">
+      <div class="lbl">Quanto devo contribuir por mês</div>
+      <div style="font-size:30px;font-weight:700;color:var(--acc);margin-top:6px;">${fmt2(plan.contribSugerida)}<span style="font-size:14px;color:var(--sub);font-weight:400;">/mês</span></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:12.5px;color:var(--sub);flex-wrap:wrap;">
+        <span>Salário médio <b style="color:var(--ink)">${fmt(plan.avgSalary)}</b></span>
+        <span style="color:var(--mut)">−</span>
+        <span>Despesas médias <b style="color:var(--ink)">${fmt(plan.avgExpensesAll)}</b></span>
+        <span style="color:var(--mut)">=</span>
+        <span>Excedente <b style="color:var(--ink)">${fmt(plan.excedente)}</b></span>
+        <span style="color:var(--mut)">× 50%</span>
+      </div>
+      <div class="mini" style="margin-top:6px;">Baseado só no salário (rendimento fixo); investimentos noutras contas não entram neste cálculo.</div>
+    </div>
   `;
 }
-
 function renderSection7(v) {
   const income = v.isAll ? v.avgIncome : v.income;
   const suggested = v.isAll ? (v.avgTR + Math.max(0, v.avgSaldo)) : (v.trade_republic + Math.max(0, v.saldo));
