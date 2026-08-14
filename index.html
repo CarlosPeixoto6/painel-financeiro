@@ -70,6 +70,10 @@
   .filterbar .extrapill{font-size:11.5px;color:var(--warn);background:rgba(240,185,77,.12);border:1px solid rgba(240,185,77,.35);border-radius:20px;padding:4px 12px;cursor:default;}
   .filterbar .techpill{font-size:11.5px;color:var(--mut);background:rgba(140,150,160,.10);border:1px solid var(--line);border-radius:20px;padding:4px 12px;cursor:default;}
   .filterbar .syncpill{font-size:11.5px;color:var(--good);background:rgba(62,207,142,.10);border:1px solid rgba(62,207,142,.3);border-radius:20px;padding:4px 12px;cursor:default;}
+  .rangebar{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:3px;gap:2px;}
+  .rangebar button{background:transparent;border:none;color:var(--sub);font-size:12.5px;font-family:inherit;padding:6px 12px;border-radius:6px;cursor:pointer;}
+  .rangebar button:hover{color:var(--ink);}
+  .rangebar button.active{background:var(--acc);color:var(--panel2);font-weight:700;}
   .loadstate{padding:80px 0;text-align:center;color:var(--sub);font-size:14px;}
   .errstate{padding:40px 0;text-align:center;color:var(--bad);font-size:14px;}
   .alertbanner{display:flex;align-items:center;gap:10px;background:rgba(240,185,77,.12);border:1px solid rgba(240,185,77,.35);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:13px;color:var(--warn);}
@@ -102,8 +106,15 @@
     </div>
 
     <div class="filterbar">
-      <label for="monthFilter">Filtrar por mês</label>
-      <select id="monthFilter" onchange="render(this.value)"></select>
+      <div class="rangebar" id="rangeBar">
+        <button type="button" class="rangebtn" data-range="range-3" onclick="selectRange('range-3')">3M</button>
+        <button type="button" class="rangebtn" data-range="range-6" onclick="selectRange('range-6')">6M</button>
+        <button type="button" class="rangebtn" data-range="range-12" onclick="selectRange('range-12')">12M</button>
+        <button type="button" class="rangebtn" data-range="range-ytd" onclick="selectRange('range-ytd')">YTD</button>
+        <button type="button" class="rangebtn" data-range="all" onclick="selectRange('all')">Tudo</button>
+      </div>
+      <label for="monthFilter">Mês específico</label>
+      <select id="monthFilter" onchange="clearRangeButtons(); render(this.value)"></select>
       <span class="scopepill" id="scopePill"></span>
       <span class="extrapill" id="extraPill" style="display:none;" title=""></span>
       <span class="techpill" id="techPill" style="display:none;" title=""></span>
@@ -195,6 +206,10 @@ async function sbFetch(table, query) {
 let MONTHLY = {};
 let MONTH_ORDER = [];
 let COMPLETE_MONTHS = [];
+// Meses (ordem ascendente) em que a Abanca ou a Revolut têm atividade — base dos atalhos de
+// intervalo (3M/6M/12M/YTD). "Todos os meses" continua a usar MONTH_ORDER (histórico completo,
+// incluindo meses só com atividade da Trade Republic).
+let PRINCIPAL_MONTHS = [];
 let MONTH_LABELS = {};
 let PERIOD_LABEL = '';
 let CURRENT_BALANCE_TODAY = 0;
@@ -355,13 +370,44 @@ function computeIncomeStability() {
   return { min, max, avg, count: values.length };
 }
 
+// Rótulos e resolução de chaves de meses para os atalhos de intervalo (3M/6M/12M/YTD).
+// Baseados em PRINCIPAL_MONTHS (Abanca+Revolut); a Trade Republic continua a contar
+// normalmente dentro desses meses, só não define os limites do intervalo.
+const RANGE_LABELS = { 'range-3': '3M', 'range-6': '6M', 'range-12': '12M', 'range-ytd': 'YTD' };
+function isRangeFilter(filter) { return typeof filter === 'string' && filter.indexOf('range-') === 0; }
+function rangeMonthKeys(filter) {
+  if (filter === 'range-ytd') {
+    const year = String(new Date().getFullYear());
+    return PRINCIPAL_MONTHS.filter(mk => mk.indexOf(year) === 0);
+  }
+  const n = parseInt(filter.split('-')[1], 10);
+  return PRINCIPAL_MONTHS.slice(-n);
+}
+
 function computeView(filter) {
   const isAll = filter === 'all';
-  const keys = isAll ? MONTH_ORDER : [filter];
+  const isRange = isRangeFilter(filter);
+  // "isPeriod" cobre tanto "Todos os meses" como os atalhos de intervalo — controla, em todo
+  // o resto do ficheiro, se a vista mostra médias mensais (período) ou os valores de um único mês.
+  const isPeriod = isAll || isRange;
+  let keys, avgKeys, label;
+  if (isAll) {
+    keys = MONTH_ORDER;
+    avgKeys = COMPLETE_MONTHS;
+    label = `Todo o período (${PERIOD_LABEL})`;
+  } else if (isRange) {
+    keys = rangeMonthKeys(filter);
+    const completeSet = new Set(COMPLETE_MONTHS);
+    avgKeys = keys.filter(mk => completeSet.has(mk));
+    label = keys.length ? `${RANGE_LABELS[filter]} · ${MONTH_LABELS[keys[0]]} → ${MONTH_LABELS[keys[keys.length - 1]]}` : RANGE_LABELS[filter];
+  } else {
+    keys = [filter];
+    avgKeys = keys;
+    label = MONTH_LABELS[filter];
+  }
   const agg = emptyAgg();
   keys.forEach(k => addMonth(agg, k));
 
-  const avgKeys = isAll ? COMPLETE_MONTHS : keys;
   const avgAgg = emptyAgg();
   avgKeys.forEach(k => addMonth(avgAgg, k));
   const avgDivisor = avgKeys.length || 1;
@@ -404,8 +450,8 @@ function computeView(filter) {
   const valorHoraIsFallback = avgSalary <= 0;
 
   return {
-    isAll, keys, filter,
-    label: isAll ? `Todo o período (${PERIOD_LABEL})` : MONTH_LABELS[filter],
+    isAll: isPeriod, isRange, keys, filter,
+    label,
     monthsCount: keys.length, avgDivisor,
     income, expenses, saldo, trade_republic: agg.trade_republic,
     investimentos: agg.investimentos, investimentosPorInstituicao: agg.investimentosPorInstituicao,
@@ -436,6 +482,18 @@ function renderFilterOptions() {
     sel.appendChild(o);
   });
   sel.value = 'all';
+}
+
+function selectRange(key) {
+  document.getElementById('monthFilter').value = 'all';
+  updateRangeButtons(key);
+  render(key);
+}
+function clearRangeButtons() { updateRangeButtons(null); }
+function updateRangeButtons(activeKey) {
+  document.querySelectorAll('#rangeBar .rangebtn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-range') === activeKey);
+  });
 }
 
 function renderSection1(v) {
@@ -1133,6 +1191,7 @@ async function init() {
 
     MONTH_ORDER = Object.keys(MONTHLY).sort();
     const mesesComContaPrincipal = MONTH_ORDER.filter(mk => MESES_COM_CONTA_PRINCIPAL.has(mk));
+    PRINCIPAL_MONTHS = mesesComContaPrincipal;
     COMPLETE_MONTHS = mesesComContaPrincipal.length > 1 ? mesesComContaPrincipal.slice(0, -1) : mesesComContaPrincipal;
     MONTH_LABELS = {};
     MONTH_ORDER.forEach(mk => { MONTH_LABELS[mk] = labelForMonth(mk); });
@@ -1147,6 +1206,7 @@ async function init() {
 
     renderFilterOptions();
     render('all');
+    updateRangeButtons('all');
     renderAlertBanner();
     renderReviewQueue();
     renderSyncPill(transacoes, entradas);
