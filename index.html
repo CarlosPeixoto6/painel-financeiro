@@ -2,7 +2,12 @@
 <html lang="pt-PT">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Painel Financeiro — Carlos</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Painel Financeiro">
+<meta name="theme-color" content="#0c1116">
 <style>
   :root{
     --bg:#0c1116; --panel:#131a22; --panel2:#0f151c; --line:#212b35;
@@ -786,18 +791,6 @@ function fugaGroupKey(descricao) {
   return [...new Set(tokens)].sort().join(' ');
 }
 
-// Descrição pronta a mostrar como rótulo principal da linha de sugestão: remove códigos
-// numéricos longos (ex: id de seguradora) e, só quando a origem vem toda em maiúsculas
-// (típico de "auto_open_banking"), passa a Title Case para ficar legível. Descrições já
-// em capitalização mista (ex: vindas de PDF) ficam tal como estão.
-function tidyDescricao(descricao) {
-  let out = descricao.replace(/\b\d{4,}\b/g, '').replace(/\s+/g, ' ').trim();
-  if (out === out.toUpperCase() && out !== out.toLowerCase()) {
-    out = out.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-  }
-  return out;
-}
-
 // Sugestões automáticas de "fuga de dinheiro": subcategorias ainda sem a flag manual, cuja
 // categoria não está excluída (excluir_sugestao_fuga), com uma descrição (normalizada) presente
 // em ≥5 dos últimos 6 meses — cadência mensal, tolerante a pequenas variações de valor/texto.
@@ -834,7 +827,6 @@ function computeSugestoesFuga(transacoes, ignoradasSet) {
       cat: g.cat,
       sub: g.sub,
       descricao: mais_recente.descricao,
-      descLabel: tidyDescricao(mais_recente.descricao),
       groupKey: fugaGroupKey(mais_recente.descricao),
       valor,
       desdeLabel: labelForMonth(desde),
@@ -856,7 +848,7 @@ function renderSection4(v) {
     ${items.map(it => `<tr><td>${it.sub}</td><td class="right ${it.val > 30 ? 'warncol' : ''}">${fmt2(it.val)}</td><td class="right">${fmt(it.val * 12)}</td><td>${it.nota || '—'}</td></tr>`).join('') || (SUGESTOES_FUGA.length ? '' : '<tr><td colspan="4">Sem fugas identificadas neste período</td></tr>')}
     ${SUGESTOES_FUGA.map(s => `
       <tr class="fugarow">
-        <td>${s.descLabel}<span class="fugabadge">sugestão</span></td>
+        <td>${s.sub}<span class="fugabadge">sugestão</span></td>
         <td class="right warncol">${fmt2(s.valor)}</td>
         <td class="right">${fmt(s.valor * 12)}</td>
         <td>
@@ -866,7 +858,7 @@ function renderSection4(v) {
           </div>
         </td>
       </tr>
-      <tr class="fugarow"><td colspan="4" class="fuganote">${s.cat} / ${s.sub} · mensal desde ${s.desdeLabel}</td></tr>
+      <tr class="fugarow"><td colspan="4" class="fuganote">mensal desde ${s.desdeLabel}</td></tr>
     `).join('')}
     <tr><td><b>Total identificado</b></td><td></td><td class="right"><b>${fmt(totalComSugestoes * 12)}/ano</b></td><td></td></tr>
   `;
