@@ -79,28 +79,7 @@
   .pillinfo{display:none;width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--sub);max-height:220px;overflow-y:auto;}
   .pillinfo div{padding:3px 0;border-bottom:1px solid var(--line);}
   .pillinfo div:last-child{border-bottom:none;}
-	        <div class="pillinfo" id="pillInfo"></div>
-	  // O atributo "title" só mostra informação em hover (rato), que não existe em ecrãs táteis.
-	  // Esta função duplica o mesmo conteúdo (uma linha por item) numa caixa que aparece ao toque,
-	  // usada pelas pills de extraordinários/excluídos/sincronizações.
-	  function togglePillInfo(text) {
-	      const box = document.getElementById('pillInfo');
-	    const isSame = box.dataset.current === text && box.style.display !== 'none';
-	    box.innerHTML = '';
-	    if (isSame) { box.style.display = 'none'; box.dataset.current = ''; return; }
-	    text.split('\n').filter(Boolean).forEach(line => {
-	      const row = document.createElement('div');
-	      row.textContent = line;
-	      box.appendChild(row);
-	    });
-	    box.style.display = 'block';
-	    box.dataset.current = text;
-	  }
-	      pill.onclick = () => togglePillInfo(pill.title);
-	      techPill.onclick = () => togglePillInfo(techPill.title);
-	      despesasPill.onclick = () => togglePillInfo(despesasPill.title);
-	      entradasPill.onclick = () => togglePillInfo(entradasPill.title);
-    .rangebar{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:3px;gap:2px;}
+  .rangebar{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:3px;gap:2px;}
   .rangebar button{background:transparent;border:none;color:var(--sub);font-size:12.5px;font-family:inherit;padding:6px 12px;border-radius:6px;cursor:pointer;}
   .rangebar button:hover{color:var(--ink);}
   .rangebar button.active{background:var(--acc);color:var(--panel2);font-weight:700;}
@@ -192,6 +171,7 @@
       <span class="techpill" id="techPill" style="display:none;" title=""></span>
       <span class="syncpill" id="syncPillDespesas" style="display:none;" title=""></span>
 <span class="syncpill" id="syncPillEntradas" style="display:none;" title=""></span>
+      <div class="pillinfo" id="pillInfo"></div>
     </div>
 
     <h2><span class="n">1</span><span id="h2-1">Visão geral</span></h2>
@@ -1094,6 +1074,23 @@ function renderTecnicas(impulsosPct, hasAltoRisco, plataformasRisco) {
   `;
 }
 
+// O atributo "title" só mostra informação em hover (rato), que não existe em ecrãs táteis.
+// Esta função duplica o mesmo conteúdo (uma linha por item) numa caixa que aparece ao toque,
+// usada pelas pills de extraordinários/excluídos/sincronizações.
+function togglePillInfo(text) {
+  const box = document.getElementById('pillInfo');
+  const isSame = box.dataset.current === text && box.style.display !== 'none';
+  box.innerHTML = '';
+  if (isSame) { box.style.display = 'none'; box.dataset.current = ''; return; }
+  text.split('\n').filter(Boolean).forEach(line => {
+    const row = document.createElement('div');
+    row.textContent = line;
+    box.appendChild(row);
+  });
+  box.style.display = 'block';
+  box.dataset.current = text;
+}
+
 function renderExtraPill(v) {
   const pill = document.getElementById('extraPill');
   const techPill = document.getElementById('techPill');
@@ -1107,6 +1104,7 @@ function renderExtraPill(v) {
     const total = genuinos.reduce((a, it) => a - it.amount, 0);
     pill.textContent = `⚠ ${genuinos.length} extraordinário${genuinos.length > 1 ? 's' : ''} excluído${genuinos.length > 1 ? 's' : ''} (${fmt(total)})`;
     pill.title = genuinos.map(it => `${it.date} — ${it.desc}: ${fmt2(-it.amount)}`).join('\n');
+    pill.onclick = () => togglePillInfo(pill.title);
     pill.style.display = 'inline-block';
   }
 
@@ -1115,6 +1113,7 @@ function renderExtraPill(v) {
   } else {
     techPill.textContent = `↻ ${tecnicos.length} excluído${tecnicos.length > 1 ? 's' : ''} automaticamente (duplicados/poupança/transferências)`;
     techPill.title = tecnicos.map(it => `${it.date} — ${it.desc}: ${fmt2(-it.amount)}`).join('\n');
+    techPill.onclick = () => togglePillInfo(techPill.title);
     techPill.style.display = 'inline-block';
   }
 }
@@ -1220,6 +1219,7 @@ function renderSyncPill(transacoes, entradas) {
   } else {
     despesasPill.textContent = `🔄 ${recentesDespesas.length} despesa${recentesDespesas.length > 1 ? 's' : ''} sincronizada${recentesDespesas.length > 1 ? 's' : ''} nas últimas 24h`;
     despesasPill.title = recentesDespesas.map(t => `${t.data} — ${t.descricao}: ${fmt2(t.valor)}`).join('\n');
+    despesasPill.onclick = () => togglePillInfo(despesasPill.title);
     despesasPill.style.display = 'inline-block';
   }
 
@@ -1230,6 +1230,7 @@ function renderSyncPill(transacoes, entradas) {
   } else {
     entradasPill.textContent = `🔄 ${recentesEntradas.length} entrada${recentesEntradas.length > 1 ? 's' : ''} sincronizada${recentesEntradas.length > 1 ? 's' : ''} nas últimas 24h`;
     entradasPill.title = recentesEntradas.map(e => `${e.data} — ${e.descricao}: ${fmt2(e.valor)}`).join('\n');
+    entradasPill.onclick = () => togglePillInfo(entradasPill.title);
     entradasPill.style.display = 'inline-block';
   }
 }
