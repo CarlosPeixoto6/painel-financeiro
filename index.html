@@ -16,7 +16,7 @@
     --good:#3ecf8e; --warn:#f0b94d; --bad:#ef6461; --acc:#5aa9e6; --acc2:#c78ff0;
   }
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Segoe UI',system-ui,-apple-system,Helvetica,Arial,sans-serif;padding:28px 18px 60px;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Segoe UI',system-ui,-apple-system,Helvetica,Arial,sans-serif;padding:max(28px, calc(env(safe-area-inset-top) + 14px)) 18px 60px;}
   .wrap{max-width:1080px;margin:0 auto;}
   h1{font-size:22px;margin:0 0 2px;letter-spacing:.2px;}
   .period{color:var(--sub);font-size:13px;margin-bottom:0;}
@@ -125,6 +125,12 @@
   .reviewqueue .controls{flex-wrap:wrap;}
   .reviewqueue select{flex:1 1 130px;min-width:0;max-width:100%;}
   .reviewqueue button{margin-left:0;flex:0 0 auto;}
+  .filterbar{flex-direction:column;align-items:stretch;}
+  .rangebar{width:100%;}
+  .rangebar button{flex:1;}
+  .monthpicker{width:100%;}
+  .monthpicker-btn{width:100%;justify-content:center;}
+  .filterbar .scopepill, .filterbar .extrapill, .filterbar .techpill, .filterbar .syncpill{display:block;width:100%;box-sizing:border-box;text-align:left;}
 }
 </style>
 </head>
