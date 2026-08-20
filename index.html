@@ -125,7 +125,7 @@
   .viewbtn{display:flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);color:var(--sub);border-radius:8px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;}
   .viewbtn:hover{border-color:var(--acc);color:var(--acc);}
   .modal-backdrop{position:fixed;inset:0;background:rgba(5,8,11,.72);display:none;align-items:center;justify-content:center;padding:24px;z-index:50;overflow:hidden;}
-  .modal-panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:min(560px,100%);max-height:min(640px,calc(100vh - 48px));box-shadow:0 24px 60px rgba(0,0,0,.55);display:flex;flex-direction:column;}
+  .modal-panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:min(560px,100%);max-height:min(640px,calc(100vh - 48px));max-height:min(640px,calc(100dvh - 48px));box-shadow:0 24px 60px rgba(0,0,0,.55);display:flex;flex-direction:column;}
   .modal-header{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 22px 14px;border-bottom:1px solid var(--line);flex-shrink:0;}
   .modal-title{font-size:15px;font-weight:700;}
   .modal-subtitle{font-size:12px;color:var(--sub);margin-top:5px;}
@@ -140,7 +140,8 @@
   .modal-footnote{padding:12px 22px 18px;font-size:11.5px;color:var(--mut);display:flex;justify-content:space-between;}
   .modal-empty{padding:32px 22px 30px;text-align:center;color:var(--mut);font-size:12.5px;}
   .txsublabel{font-size:10.5px;color:var(--mut);}
-  #txResults{flex:1;min-height:0;overflow-y:auto;}
+  #txResults{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  #txResults table{border-collapse:separate;border-spacing:0;}
   #txResults th, #txResults td{padding-left:22px;padding-right:22px;}
   #txResults thead th{position:sticky;top:0;background:var(--panel);}
   @media(max-width:760px){.g4{grid-template-columns:repeat(2,1fr);}.g3{grid-template-columns:1fr;}.g2{grid-template-columns:1fr;}.flexrow{flex-direction:column;}.donut{margin:0 auto;}
@@ -1279,12 +1280,29 @@ function openTxModal(tipo) {
     `${tipo === 'entrada' ? 'Entradas' : 'Saídas'} · ${computeView(ACTIVE_FILTER).label}`;
   document.getElementById('txResults').innerHTML = '<div class="modal-empty">Escolhe categoria e subcategoria e clica em Pesquisar.</div>';
   document.getElementById('txModalBackdrop').style.display = 'flex';
-  document.body.style.overflow = 'hidden';
+  lockBodyScroll();
 }
 
 function closeTxModal() {
   document.getElementById('txModalBackdrop').style.display = 'none';
-  document.body.style.overflow = '';
+  unlockBodyScroll();
+}
+
+// overflow:hidden sozinho não impede o Safari/iOS de arrastar a página por trás de um
+// overlay fixo (bug conhecido). Fixar o body na posição atual e restaurá-la ao fechar é o
+// padrão que funciona de forma fiável em iOS.
+let TX_SCROLL_Y = 0;
+function lockBodyScroll() {
+  TX_SCROLL_Y = window.scrollY;
+  document.body.style.position = 'fixed';
+  document.body.style.top = `-${TX_SCROLL_Y}px`;
+  document.body.style.width = '100%';
+}
+function unlockBodyScroll() {
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.width = '';
+  window.scrollTo(0, TX_SCROLL_Y);
 }
 
 function onTxCategoriaChange() {
